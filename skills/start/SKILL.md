@@ -100,6 +100,7 @@ Sprint完了時: TeamDelete で一括解放
      team_name="sprint-{N}",
      name="implementor",
      subagent_type="general-purpose",
+     mode="acceptEdits",
      prompt="以下の仕様と設計に基づいて実装してください。
 
      [spec.md の内容]
@@ -132,6 +133,7 @@ Sprint完了時: TeamDelete で一括解放
      team_name="sprint-{N}",
      name="implementor",
      subagent_type="general-purpose",
+     mode="acceptEdits",
      prompt="以下の仕様と設計に基づいて実装を修正してください。
 
      [spec.md の内容]
@@ -187,6 +189,7 @@ Sprint完了時: TeamDelete で一括解放
      team_name="sprint-{N}",
      name="{axis.id}-reviewer",
      subagent_type="{axis.id}-reviewer",
+     mode="acceptEdits",
      prompt="Sprint {N} の「{axis.name}」を評価してください。
      [dod.md の該当セクション]
      結果を .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json に書き込んでください。
@@ -213,6 +216,7 @@ Sprint完了時: TeamDelete で一括解放
      team_name="sprint-{N}",
      name="{axis.id}-reviewer",
      subagent_type="general-purpose",
+     mode="acceptEdits",
      prompt="Sprint {N} の「{axis.name}」を評価してください。
      評価方法: {axis.evaluation_method}
      合格基準: {axis.pass_criteria}
@@ -247,6 +251,7 @@ Sprint完了時: TeamDelete で一括解放
      team_name="sprint-{N}",
      name="aggregator",
      subagent_type="review-aggregator",
+     mode="acceptEdits",
      prompt="以下のレビュー結果ファイルを全て読み込み、集約サマリーを作成してください。
      ファイルパターン: .sprint-loop/sprints/sprint-{NNN}/reviews/*-attempt-{M}.json
      （summary-*.json は除外すること）
