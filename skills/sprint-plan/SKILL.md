@@ -61,6 +61,32 @@ disable-model-invocation: true
 }
 ```
 
+### Step 1.7: ループ設定のカスタマイズ
+
+スプリント分割の前に、ループの安全制限をユーザーと決定します（AskUserQuestion を使用）。
+
+**質問1: スプリントあたりのDoD最大リトライ回数**
+
+「1スプリントでDoD評価が不合格だった場合、最大何回まで再実装を試みますか？」
+
+| 選択肢 | 説明 |
+|--------|------|
+| 3回 | 小規模・シンプルなタスク向け。早めに失敗を検知 |
+| 5回（デフォルト） | 標準的なプロジェクト向け |
+| 10回 | 複雑なタスクで多くの修正サイクルが必要な場合 |
+
+**質問2: 全体の最大ループ回数**
+
+「Stop hookの最大ブロック回数（安全上限）をいくつに設定しますか？この値に達するとループは強制停止します。」
+
+| 選択肢 | 説明 |
+|--------|------|
+| 50回 | 小規模プロジェクト（3スプリント以下）向け |
+| 100回（デフォルト） | 標準的なプロジェクト向け |
+| 200回 | 大規模プロジェクト（7スプリント以上）向け |
+
+ユーザーの回答を config.json の `max_total_iterations` と `max_dod_retries` に反映します。
+
 ### Step 2: スプリント分割の提案
 
 ヒアリング結果をもとに、3-7個のスプリントに分割した計画を提案します。
@@ -139,8 +165,8 @@ disable-model-invocation: true
 #### config.json
 ```json
 {
-  "max_total_iterations": 100,
-  "max_dod_retries": 5,
+  "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
+  "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
   "review_axes": [
     { "id": "test", "name": "Test", "builtin": true },
     { "id": "spec", "name": "Spec Compliance", "builtin": true },
@@ -193,8 +219,8 @@ disable-model-invocation: true
   "current_subphase": null,
   "total_iterations": 0,
   "dod_retry_count": 0,
-  "max_total_iterations": 100,
-  "max_dod_retries": 5,
+  "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
+  "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
   "sprints": [...],
   "started_at": null,
   "completed_at": null,
