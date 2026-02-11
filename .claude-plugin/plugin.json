@@ -10,6 +10,5 @@
   "homepage": "https://github.com/KanZG/sprint-loop",
   "license": "MIT",
   "keywords": ["claude-code", "plugin", "sprint", "autonomous", "development-loop", "agent-team"],
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }
