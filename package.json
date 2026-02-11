@@ -1,0 +1,14 @@
+{
+  "name": "sprint-loop",
+  "version": "0.1.0",
+  "description": "Sprint-based autonomous development loop for Claude Code",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "sprint",
+    "autonomous",
+    "development-loop"
+  ]
+}
