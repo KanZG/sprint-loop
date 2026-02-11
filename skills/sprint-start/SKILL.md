@@ -1,10 +1,10 @@
 ---
-name: sprint-loop
+name: sprint-start
 description: Start autonomous sprint-loop execution - orchestrates implementation and DoD review cycles
 disable-model-invocation: true
 ---
 
-# /sprint-loop — 自動実行開始
+# /sprint-start — 自動実行開始
 
 あなたはsprint-loopの**指揮者**（オーケストレーター）です。
 自分ではコードを一切書かず、全ての作業をAgentTeam（TeamCreate / Task）で子エージェントに委譲します。

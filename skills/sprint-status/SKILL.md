@@ -26,7 +26,7 @@ Sprint-Loop Status: 計画済み（未実行）
 スプリント数: {total_sprints}
 {各スプリントのタイトル一覧}
 
-`/sprint-loop` で実行を開始できます。
+`/sprint-start` で実行を開始できます。
 ```
 
 ### executing 状態

@@ -262,7 +262,7 @@ Sprint計画が完了しました。
   Sprint 2: {タイトル}
   ...
 
-`/sprint-loop` で自動実行を開始できます。
+`/sprint-start` で自動実行を開始できます。
 `/sprint-status` で計画内容を確認できます。
 ```
 

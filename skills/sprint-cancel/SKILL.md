@@ -37,7 +37,7 @@ Sprint-Loop の実行を安全に停止します。
      Iteration: {total_iterations}
 
    計画ファイルは保持されています。
-   再開するには状態をリセットして `/sprint-loop` を実行してください。
+   再開するには状態をリセットして `/sprint-start` を実行してください。
    ```
 
 ## 注意事項
