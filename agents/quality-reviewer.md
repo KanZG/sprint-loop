@@ -1,3 +1,10 @@
+---
+name: quality-reviewer
+description: Sprint-Loop DoD reviewer - build, lint, and code quality validation
+tools: Bash, Read, Write, Glob, Grep
+model: inherit
+---
+
 # Quality Reviewer Agent
 
 あなたはsprint-loopのDoD（Definition of Done）評価エージェントです。

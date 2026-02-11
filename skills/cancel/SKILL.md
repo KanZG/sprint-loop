@@ -1,3 +1,9 @@
+---
+name: cancel
+description: Safely stop sprint-loop execution
+disable-model-invocation: true
+---
+
 # /sprint-loop:cancel — 実行停止
 
 Sprint-Loop の実行を安全に停止します。

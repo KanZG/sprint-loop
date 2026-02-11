@@ -31,11 +31,12 @@ Sprint-Loop は大規模な開発タスクをスプリント単位で自動実�
   ├── TaskList / TaskGet で進捗監視
   └── DoD結果を読み取り、次スプリントへの遷移判断
 
-子エージェント（実行者）
+子エージェント（実行者） ※全て同一チーム "sprint-{N}" 内
   ├── implementor: コード実装（general-purpose）
-  ├── test-reviewer: テスト検証（sprint-loop:test-reviewer）
-  ├── spec-reviewer: 仕様準拠検証（sprint-loop:spec-reviewer）
-  └── quality-reviewer: 品質検証（sprint-loop:quality-reviewer）
+  ├── test-reviewer: テスト検証（test-reviewer）
+  ├── spec-reviewer: 仕様準拠検証（spec-reviewer）
+  ├── quality-reviewer: 品質検証（quality-reviewer）
+  └── aggregator: レビュー集約（review-aggregator）
 ```
 
 ### Loop Mechanism（Stop hook）
@@ -64,7 +65,8 @@ Compaction で文脈が失われても正しい状態から再開できます。
       dod.md                           # 受け入れ基準
       execution-log.md                 # 実行ログ
       reviews/
-        review-001.json                # DoD評価結果
+        {axis_id}-attempt-{N}.json     # 個別DoD評価結果（例: test-attempt-1.json）
+        summary-attempt-{N}.json       # 集約サマリー
       result.md                        # 完了サマリー
   logs/
     orchestrator-log.md                # 指揮者の判断ログ
@@ -97,6 +99,26 @@ Sprint N 開始
 | Max iterations | 100回到達 | allow + failed |
 | Max DoD retries | 1スプリントで5回失敗 | allow + failed |
 
+## Review Result File Naming Convention
+
+| ファイル種別 | パス | 例 |
+|-------------|------|-----|
+| 個別レビュー | `reviews/{axis_id}-attempt-{N}.json` | `reviews/test-attempt-1.json` |
+| 集約サマリー | `reviews/summary-attempt-{N}.json` | `reviews/summary-attempt-1.json` |
+
+`{N}` は `dod_retry_count + 1`（1始まり）。
+古い `review-001.json` 形式は使用しない。
+
+## Iteration Counter Definitions
+
+| カウンタ | 定義 | インクリメント契機 |
+|---------|------|-------------------|
+| `total_iterations` | Stop hookのブロック回数（内部メカニズム用） | Stop hook が block を返すたび |
+| `dod_retry_count` | 現スプリントの impl→review サイクル数（品質ゲート用） | DoD rejected で再実装に戻るたび |
+
+- `total_iterations` はループ安全機構用（上限到達で強制停止）。リセットされない。
+- `dod_retry_count` は品質ゲート用（1スプリントあたりの再試行上限）。スプリント完了時に 0 にリセット。
+
 ## Rules for the Orchestrator
 
 When `/sprint-loop:start` is active and you are the orchestrator:
@@ -105,5 +127,6 @@ When `/sprint-loop:start` is active and you are the orchestrator:
 2. **ALWAYS read persistent files** before making decisions
 3. **ALWAYS update state file** after each phase transition
 4. **ALWAYS log decisions** to orchestrator-log.md
-5. **ALWAYS shutdown teams** after each phase completes
+5. **1 sprint = 1 team** — `TeamCreate(team_name="sprint-{N}")`, `TeamDelete` on sprint completion
 6. **Pass feedback verbatim** — when DoD fails, pass the exact failure messages to the implementor
+7. **Use bare names for subagent_type** — `"test-reviewer"` not `"sprint-loop:test-reviewer"`

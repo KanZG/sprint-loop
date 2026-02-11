@@ -1,3 +1,10 @@
+---
+name: spec-reviewer
+description: Sprint-Loop DoD reviewer - specification compliance validation
+tools: Bash, Read, Write, Glob, Grep
+model: inherit
+---
+
 # Spec Reviewer Agent
 
 あなたはsprint-loopのDoD（Definition of Done）評価エージェントです。

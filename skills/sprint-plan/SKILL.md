@@ -1,3 +1,9 @@
+---
+name: sprint-plan
+description: Interactive sprint planning - create specs, designs, and DoD for each sprint
+disable-model-invocation: true
+---
+
 # /sprint-loop:sprint-plan — スプリント計画策定
 
 あなたはスプリント計画のファシリテーターです。ユーザーと対話的にスプリント計画を策定し、永続ファイルに出力します。
@@ -12,6 +18,48 @@
 2. **技術スタック**: 言語、フレームワーク、ツール
 3. **制約**: 時間、既存コード、互換性要件
 4. **スコープ**: 最小限の機能（MVP）か、フル機能か
+
+### Step 1.5: DoD評価軸のカスタマイズ
+
+スプリント分割の前に、DoD（Definition of Done）の評価軸をユーザーと決定します。
+
+**デフォルト3軸:**
+- `test` — テスト実行＆合格判定
+- `spec` — 仕様準拠チェック
+- `quality` — ビルド・lint・型チェック
+
+**プロジェクト種別に応じた追加軸の提案（AskUserQuestion で確認）:**
+
+| プロジェクト種別 | 推奨追加軸 |
+|-----------------|-----------|
+| ゲーム開発 | `visual`（スクリーンショット検証）, `perf`（FPS/メモリ）, `gameplay-log`（ランタイムログ解析） |
+| Web フロントエンド | `visual`（UI スクリーンショット比較）, `a11y`（アクセシビリティ）, `responsive`（レスポンシブ対応） |
+| API / バックエンド | `api-contract`（OpenAPI/スキーマ準拠）, `perf`（レスポンスタイム）, `security`（脆弱性チェック） |
+| データパイプライン | `data-accuracy`（出力精度）, `perf`（処理時間）, `idempotency`（冪等性） |
+| CLI ツール | `ux`（ヘルプ表示・エラーメッセージ）, `perf`（起動時間） |
+
+ユーザーには以下を質問:
+
+1. 「デフォルト3軸（test/spec/quality）以外に追加したい評価軸はありますか？」
+   - プロジェクト種別に応じた候補を提示
+   - 自由記述も受け付ける
+2. 各カスタム軸について:
+   - **評価方法**: どのように合否判定するか（コマンド実行、ファイル検証、スクリーンショット比較、ログ解析等）
+   - **合格基準**: 具体的な閾値や条件
+   - **必要なツール/コマンド**: 評価に必要な外部ツール
+
+カスタム軸ごとに以下を `config.json` に記録:
+```json
+{
+  "id": "visual",
+  "name": "Visual Validation",
+  "description": "Screenshot comparison against reference images",
+  "evaluation_method": "Take screenshot after build, compare with reference in docs/references/",
+  "pass_criteria": "No visible regressions in UI layout and colors",
+  "tools": ["screenshot tool", "image diff"],
+  "agent_prompt_hint": "Take a screenshot of the running application and compare it against reference images in docs/references/. Report any visual differences."
+}
+```
 
 ### Step 2: スプリント分割の提案
 
@@ -66,20 +114,24 @@
 ```
 
 #### dod.md（受け入れ基準）
+
+`config.json` の `review_axes` に基づいて動的に構成します。
+各セクション見出しは `## {axis_id}: {表示名}` の形式にすること。
+
 ```markdown
 # Sprint {N} - Definition of Done
 
-## テスト項目（test-reviewer が評価）
+## test: テスト項目
 - [ ] {具体的なテスト要件}
-- [ ] 全テストが通ること
 
-## 仕様準拠項目（spec-reviewer が評価）
+## spec: 仕様準拠項目
 - [ ] {具体的な仕様要件}
 
-## 品質項目（quality-reviewer が評価）
+## quality: 品質項目
 - [ ] ビルドが成功すること
-- [ ] lint/型チェックエラーがないこと
-- [ ] {その他の品質要件}
+
+## {custom_axis_id}: {カスタム軸名}
+- [ ] {Step 1.5 で定義した合格基準}
 ```
 
 ### Step 4: 設定ファイルの出力
@@ -89,10 +141,27 @@
 {
   "max_total_iterations": 100,
   "max_dod_retries": 5,
-  "review_axes": ["test", "spec", "quality"],
+  "review_axes": [
+    { "id": "test", "name": "Test", "builtin": true },
+    { "id": "spec", "name": "Spec Compliance", "builtin": true },
+    { "id": "quality", "name": "Code Quality", "builtin": true }
+  ],
   "created_at": "{ISO timestamp}"
 }
 ```
+
+カスタム軸の場合、各エントリに追加フィールドを含めます:
+```json
+{
+  "id": "visual",
+  "name": "Visual Validation",
+  "builtin": false,
+  "evaluation_method": "Screenshot comparison against references",
+  "pass_criteria": "No visible regressions",
+  "agent_prompt_hint": "Take screenshots and compare with docs/references/"
+}
+```
+`agent_prompt_hint` はレビューエージェント起動時にプロンプトに注入されます。
 
 ### Step 5: 状態の初期化
 

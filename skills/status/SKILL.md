@@ -1,3 +1,9 @@
+---
+name: status
+description: Show current sprint-loop execution status and progress
+disable-model-invocation: true
+---
+
 # /sprint-loop:status — 進捗確認
 
 永続ファイルから現在の状態を読み取り、進捗を表示します。
