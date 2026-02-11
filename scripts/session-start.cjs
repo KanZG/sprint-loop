@@ -36,6 +36,24 @@ function buildRestorationContext(state, config) {
     lines.push(`  Read: .sprint-loop/sprints/sprint-${sprint}/dod.md`);
     lines.push(`  Read: .sprint-loop/sprints/sprint-${sprint}/execution-log.md`);
     lines.push('');
+
+    if (subphase === 'reviewing') {
+      const completedAxes = state.completed_review_axes || [];
+      const allAxes = (config && config.review_axes) || [];
+      const allAxisIds = allAxes.map(a => a.id);
+      const remainingAxes = allAxisIds.filter(id => !completedAxes.includes(id));
+
+      lines.push(`### Reviewing 状態:`);
+      lines.push(`完了済み軸: [${completedAxes.join(', ')}]`);
+      if (remainingAxes.length > 0) {
+        lines.push(`未完了軸: [${remainingAxes.join(', ')}]`);
+        lines.push('残りの軸のみレビューエージェントを起動してください。完了済み軸は再起動不要です。');
+      } else {
+        lines.push('全レビュー軸が完了しています。aggregator を起動して summary を生成してください。');
+      }
+      lines.push('');
+    }
+
     lines.push('AgentTeam（TeamCreate / Task）で全ての作業を子エージェントに委譲してください。');
   } else if (phase === 'planned') {
     lines.push('スプリント計画が完了しています。`/sprint-start` で実行を開始できます。');

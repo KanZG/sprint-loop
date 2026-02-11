@@ -105,25 +105,6 @@ function readSprintFile(projectDir, sprintNum, filename) {
   }
 }
 
-/**
- * Get the latest review file number for a sprint.
- * @param {string} projectDir
- * @param {number} sprintNum
- * @returns {number}
- */
-function getLatestReviewNumber(projectDir, sprintNum) {
-  const reviewDir = path.join(getSprintDir(projectDir, sprintNum), 'reviews');
-  try {
-    const files = fs.readdirSync(reviewDir);
-    const nums = files
-      .filter(f => /^review-\d+\.json$/.test(f))
-      .map(f => parseInt(f.match(/review-(\d+)\.json/)[1], 10));
-    return nums.length > 0 ? Math.max(...nums) : 0;
-  } catch {
-    return 0;
-  }
-}
-
 module.exports = {
   getStatePath,
   getSprintDir,
@@ -132,7 +113,6 @@ module.exports = {
   updateState,
   readConfig,
   readSprintFile,
-  getLatestReviewNumber,
   STATE_DIR,
   STATE_FILE,
 };

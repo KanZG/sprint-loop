@@ -181,7 +181,9 @@ Sprint完了時: TeamDelete で一括解放
 
 1. `config.json` の `review_axes` を読み込む
 
-2. `review_axes` の各軸に対応するレビューエージェントを同一チーム内で**並列**起動:
+2. state の `completed_review_axes` を `[]` にリセットする
+
+3. `review_axes` の各軸に対応するレビューエージェントを同一チーム内で**並列**起動:
 
    **builtin 軸** (`builtin: true`): 対応するベア名エージェントを使用
    ```
@@ -243,9 +245,14 @@ Sprint完了時: TeamDelete で一括解放
    > **subagent_type 命名規則**: プロジェクトローカル `.claude/agents/` のエージェントは**ベア名**（プレフィックスなし）で参照する。
    > 例: `"test-reviewer"` ○ / `"sprint-loop:test-reviewer"` ✗
 
-3. 全レビュー完了を待つ
+4. 各レビューア完了を検知するたびに state を更新:
+   ```
+   // レビューア完了検知時（TaskList で status 変化を確認）
+   state.completed_review_axes に完了した軸の axis.id を追加
+   → sprint-loop-state.json を更新
+   ```
 
-4. **集約エージェント**を同一チーム内で起動:
+5. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
    ```
    Task(
      team_name="sprint-{N}",
@@ -268,13 +275,21 @@ Sprint完了時: TeamDelete で一括解放
    )
    ```
 
-5. 全レビューエージェントと集約エージェントをシャットダウン:
+   > **注**: aggregator は「全レビューア完了 → 必ず起動」の固定パターン。
+   > 指揮者が個別レビュー JSON を直接読むと Context を大量消費するため、
+   > aggregator に集約させて summary 1ファイルのみ読む設計。
+
+6. 全レビューエージェントと aggregator をシャットダウン:
    ```
+   // 全員に連続で shutdown_request を送信（応答を1つずつ待たず、全員に送ってからまとめて待つ）
    SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")  // 各レビューア
    SendMessage(type="shutdown_request", recipient="aggregator")
    ```
 
-6. **指揮者は `summary-attempt-{M}.json` のみ読み取る**（個別レビューは読まない）
+   > **API制約**: `shutdown_request` は個別送信のみ（broadcast 不可）。
+   > `TeamDelete` は active メンバーがいると失敗するため、全員のシャットダウン完了後に実行する。
+
+7. **指揮者は `summary-attempt-{M}.json` のみ読み取る**（個別レビューは読まない）
 
 ### レビュー結果ファイル命名規則
 
@@ -304,40 +319,6 @@ Sprint完了時: TeamDelete で一括解放
 2. `summary-attempt-{M}.json` の `action_required` を execution-log.md に追記
 3. `current_subphase: "implementing"` に戻す
 4. Phase A へ（フィードバックを implementor に渡す。**チームは維持したまま**新しい implementor を起動）
-
-### execution-log.md フォーマット
-
-execution-log.md は**常に追記**する（上書きしない）。各 Attempt はセクションとして追加される。
-
-```markdown
-## Attempt 1 — 2026-02-12T10:00:00Z
-
-### Implementation
-- 作成: src/api/users.ts, src/models/user.ts
-- 実装: ユーザーCRUD API
-- 注意: ページネーション未実装
-
-## Attempt 2 — 2026-02-12T10:30:00Z
-
-### Feedback from previous attempt
-- spec: GET /users にページネーション未実装
-- quality: ESLint エラー 2件
-
-### Implementation
-- 変更: src/api/users.ts（ページネーション追加）
-- 修正: ESLint エラー修正
-```
-
-## design.md と dod.md の整合性ルール
-
-implementor は **design.md を忠実に実装**する。dod.md との不整合がある場合:
-
-1. implementor は design.md に従う（dod.md を先読みして実装を変えない）
-2. 不整合は DoD評価フェーズで reviewer が検出する
-3. reviewer のフィードバックが次の Attempt で implementor に渡される
-4. **指揮者は DoD を先読みして実装指示を変えてはならない**
-
-この設計により、design.md が「実装の真実の源」、dod.md が「品質ゲート」として明確に分離される。
 
 ## 指揮者の鉄則
 

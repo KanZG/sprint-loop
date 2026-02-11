@@ -1,7 +1,7 @@
 'use strict';
 
 const { readStdinJson } = require('./lib/stdin.cjs');
-const { readState, updateState } = require('./lib/state.cjs');
+const { readState, updateState, readConfig } = require('./lib/state.cjs');
 const { runSafetyChecks } = require('./lib/safety.cjs');
 
 /**
@@ -9,13 +9,41 @@ const { runSafetyChecks } = require('./lib/safety.cjs');
  * when the stop hook blocks. References persistent files so the orchestrator
  * can recover even after compaction.
  */
-function buildContinuationMessage(state) {
+/**
+ * Build the reviewing sub-phase instructions with dynamic review axes from config.
+ */
+function buildReviewingInstructions(sprint, config) {
+  const axes = (config && config.review_axes) || [
+    { id: 'test', name: 'Test' },
+    { id: 'spec', name: 'Spec Compliance' },
+    { id: 'quality', name: 'Code Quality' },
+  ];
+
+  const axisLines = axes.map(a => `   - ${a.id}-reviewer: ${a.name}`).join('\n');
+
+  return `**reviewing（DoD評価中）**:
+1. config.json の review_axes を読み込み、各軸のレビューエージェントを並列起動:
+${axisLines}
+2. 結果を .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json に出力
+3. 各レビューア完了時に state の completed_review_axes に軸IDを追加
+4. **全レビューア完了後、即座に aggregator を起動**（判断不要の固定ステップ）:
+   - aggregator が個別レビューを集約 → summary-attempt-{M}.json を出力
+5. 指揮者は summary-attempt-{M}.json **のみ**読み取る（個別レビューは読まない）
+6. 全PASS → サブフェーズを "completed" に → 状態更新
+7. いずれかFAIL → フィードバック付きで "implementing" に戻す`;
+}
+
+function buildContinuationMessage(state, config) {
   const sprint = String(state.current_sprint || 1).padStart(3, '0');
   const iteration = (state.total_iterations || 0) + 1;
   const max = state.max_total_iterations || 100;
   const subphase = state.current_subphase || 'implementing';
+  const dodRetries = state.dod_retry_count || 0;
+  const maxDodRetries = state.max_dod_retries || 5;
 
-  return `[SPRINT-LOOP Iteration ${iteration}/${max}]
+  const reviewingSection = buildReviewingInstructions(sprint, config);
+
+  return `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
 あなたはsprint-loopの**指揮者**です。自分でコードを書かず、全てAgentTeamに委譲してください。
 
@@ -40,15 +68,7 @@ function buildContinuationMessage(state) {
 2. implementor エージェントに spec.md + design.md を渡して実装を委譲
 3. 完了待ち → サブフェーズを "reviewing" に更新
 
-**reviewing（DoD評価中）**:
-1. TeamCreate でレビューチームを作成
-2. 3つのレビューエージェントを並列起動:
-   - test-reviewer: テスト実行＆判定
-   - spec-reviewer: 仕様準拠チェック
-   - quality-reviewer: コード品質チェック
-3. 結果を .sprint-loop/sprints/sprint-${sprint}/reviews/ に出力
-4. 全PASS → サブフェーズを "completed" に → 状態更新
-5. いずれかFAIL → フィードバック付きで "implementing" に戻す
+${reviewingSection}
 
 **completed（スプリント完了）**:
 1. result.md にスプリント完了サマリーを書き込み
@@ -130,10 +150,11 @@ async function main() {
       total_iterations: newIterations,
     });
 
+    const config = readConfig(projectDir);
     const message = buildContinuationMessage({
       ...state,
       total_iterations: newIterations,
-    });
+    }, config);
 
     console.log(JSON.stringify({
       decision: 'block',

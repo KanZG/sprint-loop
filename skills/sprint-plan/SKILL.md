@@ -241,6 +241,7 @@ disable-model-invocation: true
   "current_subphase": null,
   "total_iterations": 0,
   "dod_retry_count": 0,
+  "completed_review_axes": [],
   "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
   "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
   "sprints": [...],
