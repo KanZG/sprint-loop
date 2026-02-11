@@ -10,6 +10,23 @@ disable-model-invocation: true
 
 ## フロー
 
+### Step 0: 既存計画の確認
+
+ヒアリングを開始する前に、既存の `.sprint-loop/` ディレクトリの有無を確認します。
+
+存在する場合、AskUserQuestion で以下を確認:
+
+「前回のスプリント計画（.sprint-loop/）が残っています。どうしますか？」
+
+| 選択肢 | 説明 |
+|--------|------|
+| 全て削除して新規作成 | .sprint-loop/ を丸ごと削除し、新しい計画を開始 |
+| 計画のみ残して実行結果を削除 | plan.md と config.json は保持し、state/, sprints/*/reviews/, sprints/*/execution-log.md, sprints/*/result.md, logs/ を削除 |
+| そのまま上書き | 既存ファイルを保持し、同名ファイルのみ上書き |
+
+「全て削除して新規作成」が選ばれた場合、`.sprint-loop/` ディレクトリ全体を削除してから Step 1 に進みます。
+「計画のみ残す」が選ばれた場合、実行結果ファイルのみ削除してから Step 1 に進みます。
+
 ### Step 1: ヒアリング
 
 ユーザーに以下を質問してください（AskUserQuestion ツールを使用）:
@@ -47,6 +64,10 @@ disable-model-invocation: true
    - **評価方法**: どのように合否判定するか（コマンド実行、ファイル検証、スクリーンショット比較、ログ解析等）
    - **合格基準**: 具体的な閾値や条件
    - **必要なツール/コマンド**: 評価に必要な外部ツール
+   - **エージェント能力**: レビューエージェントにどの能力を許可するか
+     - `read_only` — ファイル読み取りのみ（静的解析、コードレビュー）
+     - `bash` — Bash コマンド実行可（ビルド、テスト、CLI実行）
+     - `browser` — ブラウザ操作可（スクリーンショット、UI検証）
 
 カスタム軸ごとに以下を `config.json` に記録:
 ```json
@@ -57,6 +78,7 @@ disable-model-invocation: true
   "evaluation_method": "Take screenshot after build, compare with reference in docs/references/",
   "pass_criteria": "No visible regressions in UI layout and colors",
   "tools": ["screenshot tool", "image diff"],
+  "agent_capabilities": "browser",
   "agent_prompt_hint": "Take a screenshot of the running application and compare it against reference images in docs/references/. Report any visual differences."
 }
 ```
@@ -250,4 +272,6 @@ Sprint計画が完了しました。
 - spec.md の技術タスクは具体的で実装可能なレベルまで詳細化すること
 - dod.md の各項目はレビューエージェントが機械的に判定可能な粒度にすること
 - design.md にはインターフェースの型定義やシグネチャを含めること
+- **spec.md は「What」（何を作るか）** — ユーザーストーリー、受け入れ条件、変更対象ファイル。関数シグネチャや型定義は含めない
+- **design.md は「How」（どう作るか）** — アーキテクチャ、関数シグネチャ、型定義、アルゴリズム選択理由。spec.md の各タスクに対する具体的な実装方針を記述する
 - ユーザーの承認なしに計画を確定しないこと
