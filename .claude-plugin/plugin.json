@@ -11,6 +11,5 @@
   "license": "MIT",
   "keywords": ["claude-code", "plugin", "sprint", "autonomous", "development-loop", "agent-team"],
   "skills": "./skills/",
-  "agents": "./agents/",
   "hooks": "./hooks/hooks.json"
 }
