@@ -38,7 +38,7 @@ function buildRestorationContext(state, config) {
     lines.push('');
     lines.push('AgentTeam（TeamCreate / Task）で全ての作業を子エージェントに委譲してください。');
   } else if (phase === 'planned') {
-    lines.push('スプリント計画が完了しています。`/sprint-loop:start` で実行を開始できます。');
+    lines.push('スプリント計画が完了しています。`/sprint-loop` で実行を開始できます。');
   } else if (phase === 'all_complete') {
     lines.push('全スプリントが正常に完了しています。');
   } else if (phase === 'failed') {
@@ -59,8 +59,8 @@ function buildPlannedContext(state) {
   lines.push('[SPRINT-LOOP PLAN READY]');
   lines.push('');
   lines.push(`計画済みスプリント数: ${state.total_sprints || 0}`);
-  lines.push('`/sprint-loop:start` で自動実行を開始できます。');
-  lines.push('`/sprint-loop:status` で計画内容を確認できます。');
+  lines.push('`/sprint-loop` で自動実行を開始できます。');
+  lines.push('`/sprint-status` で計画内容を確認できます。');
   lines.push('</session-restore>');
   return lines.join('\n');
 }

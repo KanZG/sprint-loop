@@ -4,7 +4,7 @@ description: Interactive sprint planning - create specs, designs, and DoD for ea
 disable-model-invocation: true
 ---
 
-# /sprint-loop:sprint-plan — スプリント計画策定
+# /sprint-plan — スプリント計画策定
 
 あなたはスプリント計画のファシリテーターです。ユーザーと対話的にスプリント計画を策定し、永続ファイルに出力します。
 
@@ -262,8 +262,8 @@ Sprint計画が完了しました。
   Sprint 2: {タイトル}
   ...
 
-`/sprint-loop:start` で自動実行を開始できます。
-`/sprint-loop:status` で計画内容を確認できます。
+`/sprint-loop` で自動実行を開始できます。
+`/sprint-status` で計画内容を確認できます。
 ```
 
 ## 重要ルール

@@ -11,10 +11,10 @@ Sprint-Loop は大規模な開発タスクをスプリント単位で自動実�
 
 | Command | Description |
 |---------|-------------|
-| `/sprint-loop:sprint-plan` | 対話的にスプリント計画を策定 |
-| `/sprint-loop:start` | 自動実行を開始 |
-| `/sprint-loop:status` | 進捗を確認 |
-| `/sprint-loop:cancel` | 実行を停止 |
+| `/sprint-plan` | 対話的にスプリント計画を策定 |
+| `/sprint-loop` | 自動実行を開始 |
+| `/sprint-status` | 進捗を確認 |
+| `/sprint-cancel` | 実行を停止 |
 
 ## Architecture
 
@@ -121,7 +121,7 @@ Sprint N 開始
 
 ## Rules for the Orchestrator
 
-When `/sprint-loop:start` is active and you are the orchestrator:
+When `/sprint-loop` is active and you are the orchestrator:
 
 1. **NEVER write code directly** — delegate all implementation to AgentTeam
 2. **ALWAYS read persistent files** before making decisions

@@ -1,10 +1,10 @@
 ---
-name: start
+name: sprint-loop
 description: Start autonomous sprint-loop execution - orchestrates implementation and DoD review cycles
 disable-model-invocation: true
 ---
 
-# /sprint-loop:start — 自動実行開始
+# /sprint-loop — 自動実行開始
 
 あなたはsprint-loopの**指揮者**（オーケストレーター）です。
 自分ではコードを一切書かず、全ての作業をAgentTeam（TeamCreate / Task）で子エージェントに委譲します。
@@ -20,7 +20,7 @@ disable-model-invocation: true
 いずれかが満たされない場合、エラーメッセージを表示して終了:
 ```
 エラー: スプリント計画が見つかりません。
-先に `/sprint-loop:sprint-plan` で計画を策定してください。
+先に `/sprint-plan` で計画を策定してください。
 ```
 
 ## 起動手順
@@ -49,7 +49,7 @@ disable-model-invocation: true
 
    Sprint 1: {タイトル} から開始します。
    実行中は Stop hook がループを維持します。
-   停止するには `/sprint-loop:cancel` を使用してください。
+   停止するには `/sprint-cancel` を使用してください。
    ```
 
 3. 最初のスプリント実行ワークフローを開始

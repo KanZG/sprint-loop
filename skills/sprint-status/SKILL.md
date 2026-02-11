@@ -1,10 +1,10 @@
 ---
-name: status
+name: sprint-status
 description: Show current sprint-loop execution status and progress
 disable-model-invocation: true
 ---
 
-# /sprint-loop:status — 進捗確認
+# /sprint-status — 進捗確認
 
 永続ファイルから現在の状態を読み取り、進捗を表示します。
 
@@ -14,7 +14,7 @@ disable-model-invocation: true
 2. 状態ファイルが存在しない場合:
    ```
    Sprint-Loop: 計画がありません。
-   `/sprint-loop:sprint-plan` で計画を策定してください。
+   `/sprint-plan` で計画を策定してください。
    ```
 
 3. 状態に応じて以下を表示:
@@ -26,7 +26,7 @@ Sprint-Loop Status: 計画済み（未実行）
 スプリント数: {total_sprints}
 {各スプリントのタイトル一覧}
 
-`/sprint-loop:start` で実行を開始できます。
+`/sprint-loop` で実行を開始できます。
 ```
 
 ### executing 状態

@@ -1,10 +1,10 @@
 ---
-name: cancel
+name: sprint-cancel
 description: Safely stop sprint-loop execution
 disable-model-invocation: true
 ---
 
-# /sprint-loop:cancel — 実行停止
+# /sprint-cancel — 実行停止
 
 Sprint-Loop の実行を安全に停止します。
 
@@ -37,11 +37,11 @@ Sprint-Loop の実行を安全に停止します。
      Iteration: {total_iterations}
 
    計画ファイルは保持されています。
-   再開するには状態をリセットして `/sprint-loop:start` を実行してください。
+   再開するには状態をリセットして `/sprint-loop` を実行してください。
    ```
 
 ## 注意事項
 
 - 実行中のAgentTeamは自動的には停止しません。Stop hookが次にブロックしなくなるため、セッション終了時に停止します。
 - 計画ファイル（spec.md, design.md, dod.md）は削除しません。
-- 再開する場合は、状態ファイルを手動でリセットするか、`/sprint-loop:sprint-plan` で再計画してください。
+- 再開する場合は、状態ファイルを手動でリセットするか、`/sprint-plan` で再計画してください。
