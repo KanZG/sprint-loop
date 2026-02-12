@@ -25,6 +25,8 @@ disable-model-invocation: true
 先に `/sprint-plan` で計画を策定してください。
 ```
 
+4. Plan Mode が有効な場合 → ExitPlanMode を呼び出す
+
 ## 起動手順
 
 1. 状態ファイルを更新:

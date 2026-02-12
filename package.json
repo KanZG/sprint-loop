@@ -1,6 +1,6 @@
 {
   "name": "sprint-loop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Sprint-based autonomous development loop for Claude Code",
   "license": "MIT",
   "author": "KanZG",
