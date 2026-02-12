@@ -32,6 +32,8 @@ Sprint-Loop は大規模な開発タスクをスプリント単位で自動実�
   └── DoD結果を読み取り、次スプリントへの遷移判断
 
 子エージェント（実行者） ※全て同一チーム "sprint-{N}" 内
+  ├── plan-validator: 計画整合性検証（full-adaptive時のみ）
+  ├── planner: インライン計画生成（rolling時のみ）
   ├── implementor: コード実装（general-purpose）
   ├── test-reviewer: テスト検証（test-reviewer）
   ├── spec-reviewer: 仕様準拠検証（spec-reviewer）
@@ -54,16 +56,18 @@ Compaction で文脈が失われても正しい状態から再開できます。
 
 ```
 {project}/.sprint-loop/
-  plan.md                              # マスタープラン
-  config.json                          # 実行設定
+  plan.md                              # マスタープラン（Phase セクション含む）
+  config.json                          # 実行設定（schema_version: 1）
   state/
-    sprint-loop-state.json             # メイン状態ファイル
+    sprint-loop-state.json             # メイン状態ファイル（schema_version: 1）
+    planning-result.md                 # rolling モード: planner の出力
   sprints/
     sprint-001/
       spec.md                          # スプリント仕様
-      design.md                        # 詳細設計
+      design.md                        # 詳細設計（目安: 50-500行）
       dod.md                           # 受け入れ基準
       execution-log.md                 # 実行ログ
+      plan-revision.md                 # full-adaptive: 計画検証結果
       reviews/
         {axis_id}-attempt-{N}.json     # 個別DoD評価結果（例: test-attempt-1.json）
         summary-attempt-{N}.json       # 集約サマリー
@@ -72,18 +76,49 @@ Compaction で文脈が失われても正しい状態から再開できます。
     orchestrator-log.md                # 指揮者の判断ログ
 ```
 
+## Planning Strategies
+
+| 戦略 | 概要 | 適したプロジェクト |
+|------|------|-------------------|
+| `full`（デフォルト） | 全スプリントを一度に詳細化 | 小〜中規模、仕様が安定 |
+| `full-adaptive` | 全スプリントを詳細化 + 各スプリント開始前に計画検証・自律修正 | 中〜大規模、詳細に不確実性がある |
+| `rolling` | 最初の N スプリントのみ詳細化、残りはタイトル+ゴール。実行中に次バッチを自律生成 | 大規模、不確実性が高い、探索的 |
+
+## Phase Grouping
+
+8スプリント以上のプロジェクトでは、スプリントを論理的な Phase にグルーピングする。
+Phase は `plan.md` のセクション構成と `state.json` の `current_phase` メタデータで表現。
+ディレクトリ構造は変更しない（`sprints/sprint-NNN/` のフラット構造を維持）。
+
+## Per-Sprint DoD Overrides
+
+`config.json` の `sprint_overrides` でスプリントごとに DoD 軸をスキップ or オーバーライド可能。
+
+```json
+{
+  "sprint_overrides": {
+    "1": { "skip_axes": ["visual", "perf"] },
+    "9": { "visual": { "pass_criteria": "Record baseline only" } }
+  }
+}
+```
+
 ## Sprint Execution Workflow
 
 ```
 Sprint N 開始
   │
+  ├─ 0. Pre-Phase: 計画検証/インライン計画（planning_strategy に応じて）
+  │     ├─ full: スキップ
+  │     ├─ full-adaptive: plan-validator で計画整合性検証
+  │     └─ rolling: planner で次バッチの計画生成（必要時のみ）
   ├─ 1. spec.md, design.md, dod.md 読み込み
   ├─ 2. TeamCreate で実装チーム構成
   ├─ 3. implementor に実装委譲
   ├─ 4. 実装完了待ち
-  ├─ 5. DoD評価（3 reviewers 並列）
+  ├─ 5. DoD評価（sprint_overrides 適用後の有効軸で並列評価）
   ├─ 6. 結果判定
-  │     ├─ 全PASS → Sprint完了 → 次へ
+  │     ├─ 全PASS → Sprint完了 → sprints配列更新 → Phase遷移判定 → 次へ
   │     └─ FAIL → フィードバック → 再実装
   └─ 7. チームシャットダウン
 ```
@@ -96,8 +131,8 @@ Sprint N 開始
 | User abort | stop_reason に "user" 含む | allow（Ctrl+C 尊重） |
 | Session mismatch | session_id 不一致 | allow（クロスセッション防止） |
 | Staleness | 最終更新から2時間超 | allow（スタックロック防止） |
-| Max iterations | 100回到達 | allow + failed |
-| Max DoD retries | 1スプリントで5回失敗 | allow + failed |
+| Max iterations | 設定値到達（デフォルト100、最大1000） | allow + failed |
+| Max DoD retries | 設定値到達（デフォルト5、最大10） | allow + failed |
 
 ## Review Result File Naming Convention
 
@@ -118,6 +153,47 @@ Sprint N 開始
 
 - `total_iterations` はループ安全機構用（上限到達で強制停止）。リセットされない。
 - `dod_retry_count` は品質ゲート用（1スプリントあたりの再試行上限）。スプリント完了時に 0 にリセット。
+
+## Config Schema (v1)
+
+```json
+{
+  "schema_version": 1,
+  "project": { "name": "...", "tech_stack": "..." },
+  "planning_strategy": "full | full-adaptive | rolling",
+  "rolling_horizon": "null | number (rolling時のみ)",
+  "planned_through_sprint": "null | number (rolling時のみ)",
+  "max_total_iterations": 100,
+  "max_dod_retries": 5,
+  "review_axes": [{ "id": "...", "name": "...", "builtin": true }],
+  "sprint_overrides": { "1": { "skip_axes": ["..."] } },
+  "created_at": "ISO 8601 UTC timestamp"
+}
+```
+
+## State Schema (v1)
+
+```json
+{
+  "schema_version": 1,
+  "active": false,
+  "session_id": null,
+  "phase": "planned | executing | all_complete | failed",
+  "current_sprint": 1,
+  "total_sprints": "N",
+  "current_phase": "Phase名 or null",
+  "current_subphase": "implementing | reviewing | planning | completed | null",
+  "total_iterations": 0,
+  "dod_retry_count": 0,
+  "completed_review_axes": [],
+  "planning_strategy": "full | full-adaptive | rolling",
+  "planned_through_sprint": "null | number",
+  "sprints": [{ "number": 1, "title": "...", "status": "pending | in_progress | completed" }],
+  "started_at": null,
+  "completed_at": null,
+  "last_checked_at": "ISO 8601 UTC timestamp"
+}
+```
 
 ## Rules for the Orchestrator
 

@@ -6,6 +6,8 @@ const path = require('path');
 const STATE_DIR = '.sprint-loop/state';
 const STATE_FILE = 'sprint-loop-state.json';
 
+const CURRENT_SCHEMA_VERSION = 1;
+
 /**
  * Resolve the state file path for a given project directory.
  * @param {string} projectDir
@@ -39,7 +41,11 @@ function readState(projectDir) {
   const filePath = getStatePath(projectDir);
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(content);
+    const state = JSON.parse(content);
+    if (state.schema_version && state.schema_version > CURRENT_SCHEMA_VERSION) {
+      process.stderr.write(`Warning: state schema version ${state.schema_version} > supported ${CURRENT_SCHEMA_VERSION}\n`);
+    }
+    return state;
   } catch {
     return null;
   }
@@ -83,7 +89,11 @@ function updateState(projectDir, updates) {
 function readConfig(projectDir) {
   const filePath = path.join(projectDir, '.sprint-loop', 'config.json');
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const config = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (config.schema_version && config.schema_version > CURRENT_SCHEMA_VERSION) {
+      process.stderr.write(`Warning: config schema version ${config.schema_version} > supported ${CURRENT_SCHEMA_VERSION}\n`);
+    }
+    return config;
   } catch {
     return null;
   }
@@ -115,4 +125,5 @@ module.exports = {
   readSprintFile,
   STATE_DIR,
   STATE_FILE,
+  CURRENT_SCHEMA_VERSION,
 };

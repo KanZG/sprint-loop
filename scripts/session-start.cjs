@@ -22,6 +22,10 @@ function buildRestorationContext(state, config) {
   lines.push('');
   lines.push(`Phase: ${phase} | Sub-phase: ${subphase}`);
   lines.push(`Sprint: ${state.current_sprint}/${state.total_sprints}`);
+  if (state.current_phase) {
+    lines.push(`Phase: ${state.current_phase}`);
+  }
+  lines.push(`Strategy: ${(config && config.planning_strategy) || 'full'}`);
   lines.push(`Iteration: ${iteration}/${max} | DoD retries: ${dodRetries}/${state.max_dod_retries || 5}`);
   lines.push(`Started: ${state.started_at || 'unknown'}`);
   lines.push('');
@@ -40,7 +44,13 @@ function buildRestorationContext(state, config) {
     if (subphase === 'reviewing') {
       const completedAxes = state.completed_review_axes || [];
       const allAxes = (config && config.review_axes) || [];
-      const allAxisIds = allAxes.map(a => a.id);
+
+      // Apply per-sprint overrides
+      const overrides = (config && config.sprint_overrides && config.sprint_overrides[String(state.current_sprint)]) || {};
+      const skipAxes = overrides.skip_axes || [];
+      const effectiveAxes = allAxes.filter(a => !skipAxes.includes(a.id));
+
+      const allAxisIds = effectiveAxes.map(a => a.id);
       const remainingAxes = allAxisIds.filter(id => !completedAxes.includes(id));
 
       lines.push(`### Reviewing 状態:`);
@@ -51,6 +61,14 @@ function buildRestorationContext(state, config) {
       } else {
         lines.push('全レビュー軸が完了しています。aggregator を起動して summary を生成してください。');
       }
+      lines.push('');
+    }
+
+    if (subphase === 'planning') {
+      lines.push('### Planning 状態:');
+      lines.push('rolling モードでインライン計画生成中です。');
+      lines.push(`計画済み: Sprint ${state.planned_through_sprint || '?'} まで`);
+      lines.push('planner エージェントをスプリントチーム内に起動して次バッチの計画を生成してください。');
       lines.push('');
     }
 

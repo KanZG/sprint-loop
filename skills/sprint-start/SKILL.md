@@ -15,7 +15,9 @@ disable-model-invocation: true
 
 1. `.sprint-loop/state/sprint-loop-state.json` が存在すること
 2. `phase` が `"planned"` であること
-3. 全スプリントの `spec.md` と `dod.md` が存在すること
+3. 計画戦略に応じたスプリントファイルの存在確認:
+   - `full` / `full-adaptive`: 全スプリントの `spec.md` と `dod.md` が存在すること
+   - `rolling`: `planned_through_sprint` までのスプリントの `spec.md` と `dod.md` が存在すること
 
 いずれかが満たされない場合、エラーメッセージを表示して終了:
 ```
@@ -44,6 +46,8 @@ disable-model-invocation: true
    Sprint-Loop 自動実行を開始します。
 
    Total sprints: {N}
+   Planning strategy: {planning_strategy}
+   Current phase: {current_phase or "なし"}
    Max iterations: {max}
    Max DoD retries per sprint: {max}
 
@@ -79,6 +83,99 @@ TeamCreate(team_name="sprint-{N}")
   └── aggregator（Phase B で起動、完了後 shutdown）
 Sprint完了時: TeamDelete で一括解放
 ```
+
+**planning_strategy による追加メンバー:**
+
+full-adaptive の場合:
+```
+TeamCreate(team_name="sprint-{N}")
+  ├── plan-validator（検証 → shutdown）      ← Pre-Phase
+  ├── implementor（Phase A で起動、完了後 shutdown）
+  ├── {axis_id}-reviewer × N（Phase B で起動、完了後 shutdown）
+  └── aggregator（Phase B で起動、完了後 shutdown）
+```
+
+rolling の場合（計画生成が必要な時）:
+```
+TeamCreate(team_name="sprint-{N}")
+  ├── planner（計画生成 → shutdown）          ← Pre-Phase
+  ├── implementor（Phase A で起動、完了後 shutdown）
+  ├── {axis_id}-reviewer × N（Phase B で起動、完了後 shutdown）
+  └── aggregator（Phase B で起動、完了後 shutdown）
+```
+
+### Pre-Phase: 計画検証 / インライン計画（planning_strategy に応じて）
+
+各スプリントの実装開始前に、`config.json` の `planning_strategy` に応じて追加ステップを実行します。
+
+#### full の場合
+
+追加ステップなし。直接 Phase A に進む。
+
+#### full-adaptive の場合
+
+各スプリント開始前に、計画の整合性を検証します:
+
+1. スプリントチーム内に "plan-validator" を起動:
+   ```
+   Task(
+     team_name="sprint-{N}",
+     name="plan-validator",
+     subagent_type="general-purpose",
+     mode="acceptEdits",
+     prompt="以下を読み込み、計画の整合性を検証してください:
+       - .sprint-loop/sprints/sprint-{NNN}/spec.md
+       - .sprint-loop/sprints/sprint-{NNN}/design.md
+       - .sprint-loop/sprints/sprint-{NNN}/dod.md
+       - 直前 1-2 スプリントの result.md
+
+       検証項目:
+       - design.md が参照する API/関数が実際のコードに存在するか
+       - 前提とする前スプリントの成果物が想定通りか
+       - 技術的アプローチに変更が必要か
+
+       乖離がある場合: spec.md / design.md / dod.md を修正し、
+       修正サマリーを .sprint-loop/sprints/sprint-{NNN}/plan-revision.md に出力。
+       乖離がない場合: plan-revision.md に 'No revision needed' と書く。"
+   )
+   ```
+2. plan-validator 完了後、`plan-revision.md` のみ読み取り（1行チェック）
+3. plan-validator をシャットダウン
+4. Phase A（implementing）に進む
+
+#### rolling の場合
+
+現在のスプリントが計画済み範囲の末端に近い場合、次バッチを計画します:
+
+条件: `config.planning_strategy == "rolling" AND current_sprint > state.planned_through_sprint - 1`
+
+1. `current_subphase` を `"planning"` に設定、状態ファイルを更新
+2. スプリントチーム内に "planner" を起動:
+   ```
+   Task(
+     team_name="sprint-{N}",
+     name="planner",
+     subagent_type="general-purpose",
+     mode="acceptEdits",
+     prompt="以下を読み込み、次 {rolling_horizon} スプリントの詳細計画を生成:
+       - .sprint-loop/plan.md（タイトル+ゴール一覧）
+       - 直前スプリントの result.md（実績）
+       - .sprint-loop/config.json（DoD軸設定）
+
+       各スプリントについて以下を生成:
+       - spec.md（仕様）
+       - design.md（詳細設計）
+       - dod.md（受け入れ基準、config の review_axes に基づく）
+
+       完了後、生成したスプリント番号一覧を
+       .sprint-loop/state/planning-result.md に出力。"
+   )
+   ```
+3. planner 完了後、`planning-result.md` のみ読み取り
+4. planner をシャットダウン
+5. `state.planned_through_sprint` を更新
+6. `current_subphase` を `"implementing"` に戻す
+7. Phase A に進む
 
 ### Phase A: 実装（implementing）
 
@@ -179,11 +276,19 @@ Sprint完了時: TeamDelete で一括解放
 
 ### Phase B: DoD評価（reviewing）
 
-1. `config.json` の `review_axes` を読み込む
+1. `config.json` の `review_axes` と `sprint_overrides` を読み込む
 
-2. state の `completed_review_axes` を `[]` にリセットする
+2. 現在のスプリント番号に対応する `sprint_overrides` がある場合、有効な軸をフィルタリング:
+   ```
+   const overrides = config.sprint_overrides?.[String(current_sprint)] || {};
+   const skipAxes = overrides.skip_axes || [];
+   const effectiveAxes = config.review_axes.filter(a => !skipAxes.includes(a.id));
+   ```
+   スキップされた軸はログに記録する。
 
-3. `review_axes` の各軸に対応するレビューエージェントを同一チーム内で**並列**起動:
+3. state の `completed_review_axes` を `[]` にリセットする
+
+4. `effectiveAxes` の各軸に対応するレビューエージェントを同一チーム内で**並列**起動:
 
    **builtin 軸** (`builtin: true`): 対応するベア名エージェントを使用
    ```
@@ -245,14 +350,14 @@ Sprint完了時: TeamDelete で一括解放
    > **subagent_type 命名規則**: プロジェクトローカル `.claude/agents/` のエージェントは**ベア名**（プレフィックスなし）で参照する。
    > 例: `"test-reviewer"` ○ / `"sprint-loop:test-reviewer"` ✗
 
-4. 各レビューア完了を検知するたびに state を更新:
+5. 各レビューア完了を検知するたびに state を更新:
    ```
    // レビューア完了検知時（TaskList で status 変化を確認）
    state.completed_review_axes に完了した軸の axis.id を追加
    → sprint-loop-state.json を更新
    ```
 
-5. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
+6. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
    ```
    Task(
      team_name="sprint-{N}",
@@ -279,7 +384,7 @@ Sprint完了時: TeamDelete で一括解放
    > 指揮者が個別レビュー JSON を直接読むと Context を大量消費するため、
    > aggregator に集約させて summary 1ファイルのみ読む設計。
 
-6. 全レビューエージェントと aggregator をシャットダウン:
+7. 全レビューエージェントと aggregator をシャットダウン:
    ```
    // 全員に連続で shutdown_request を送信（応答を1つずつ待たず、全員に送ってからまとめて待つ）
    SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")  // 各レビューア
@@ -289,7 +394,7 @@ Sprint完了時: TeamDelete で一括解放
    > **API制約**: `shutdown_request` は個別送信のみ（broadcast 不可）。
    > `TeamDelete` は active メンバーがいると失敗するため、全員のシャットダウン完了後に実行する。
 
-7. **指揮者は `summary-attempt-{M}.json` のみ読み取る**（個別レビューは読まない）
+8. **指揮者は `summary-attempt-{M}.json` のみ読み取る**（個別レビューは読まない）
 
 ### レビュー結果ファイル命名規則
 
@@ -305,14 +410,17 @@ Sprint完了時: TeamDelete で一括解放
 **全 approved の場合:**
 1. `result.md` にスプリント完了サマリーを書き込み
 2. スプリントの status を `"completed"` に更新
-3. `current_sprint` をインクリメント
-4. `dod_retry_count` を 0 にリセット
-5. チームをシャットダウン・削除:
+3. state の `sprints` 配列で該当スプリントの status を `"completed"` に更新
+4. `current_sprint` をインクリメント
+5. 次スプリントが新しい Phase に属する場合、`current_phase` を更新（plan.md の Phase セクションを参照）
+6. state の `sprints` 配列で次スプリントの status を `"in_progress"` に更新
+7. `dod_retry_count` を 0 にリセット
+8. チームをシャットダウン・削除:
    ```
    TeamDelete  // sprint-{N} チーム全体を解放
    ```
-6. 次のスプリントがあれば → `current_subphase: "implementing"` で Phase A へ（新チーム作成）
-7. 全スプリント完了なら → `phase: "all_complete"`, `active: false`
+9. 次のスプリントがあれば → `current_subphase: "implementing"` で Phase A へ（新チーム作成）
+10. 全スプリント完了なら → `phase: "all_complete"`, `active: false`
 
 **いずれか rejected の場合:**
 1. `dod_retry_count` をインクリメント

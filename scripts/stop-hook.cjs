@@ -12,14 +12,19 @@ const { runSafetyChecks } = require('./lib/safety.cjs');
 /**
  * Build the reviewing sub-phase instructions with dynamic review axes from config.
  */
-function buildReviewingInstructions(sprint, config) {
+function buildReviewingInstructions(sprint, config, sprintNum) {
   const axes = (config && config.review_axes) || [
     { id: 'test', name: 'Test' },
     { id: 'spec', name: 'Spec Compliance' },
     { id: 'quality', name: 'Code Quality' },
   ];
 
-  const axisLines = axes.map(a => `   - ${a.id}-reviewer: ${a.name}`).join('\n');
+  // Apply per-sprint overrides
+  const overrides = (config && config.sprint_overrides && config.sprint_overrides[String(sprintNum)]) || {};
+  const skipAxes = overrides.skip_axes || [];
+  const effectiveAxes = axes.filter(a => !skipAxes.includes(a.id));
+
+  const axisLines = effectiveAxes.map(a => `   - ${a.id}-reviewer: ${a.name}`).join('\n');
 
   return `**reviewing（DoD評価中）**:
 1. config.json の review_axes を読み込み、各軸のレビューエージェントを並列起動:
@@ -41,7 +46,8 @@ function buildContinuationMessage(state, config) {
   const dodRetries = state.dod_retry_count || 0;
   const maxDodRetries = state.max_dod_retries || 5;
 
-  const reviewingSection = buildReviewingInstructions(sprint, config);
+  const sprintNum = state.current_sprint || 1;
+  const reviewingSection = buildReviewingInstructions(sprint, config, sprintNum);
 
   return `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
@@ -69,6 +75,12 @@ function buildContinuationMessage(state, config) {
 3. 完了待ち → サブフェーズを "reviewing" に更新
 
 ${reviewingSection}
+
+**planning（計画生成中 — rolling モードのみ）**:
+1. planner エージェントをスプリントチーム内に起動
+2. 次バッチのスプリント詳細計画（spec.md / design.md / dod.md）を生成
+3. 完了後、planning-result.md を読み取り、state.planned_through_sprint を更新
+4. implementing サブフェーズに遷移
 
 **completed（スプリント完了）**:
 1. result.md にスプリント完了サマリーを書き込み

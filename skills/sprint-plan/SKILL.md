@@ -8,6 +8,15 @@ disable-model-invocation: true
 
 あなたはスプリント計画のファシリテーターです。ユーザーと対話的にスプリント計画を策定し、永続ファイルに出力します。
 
+## 重要: Claude Code Plan Mode との関係
+
+このスキルの主要出力はスプリントファイル（spec.md, design.md, dod.md, config.json, state.json）です。
+これらのファイル生成は「実装」ではなく、スキルの本来の成果物です。
+
+- Step 2 でユーザーがスプリント構造を承認した後、**必ず Steps 3-6 に進んでファイルを書き出すこと**
+- Claude Code の Plan Mode を使用している場合、ExitPlanMode は **Step 2 の承認後** に呼び出す
+- ExitPlanMode 後、Steps 3-6 のファイル書き出しを実行すること（これは「計画の実装」ではなく「スキルの出力生成」）
+
 ## フロー
 
 ### Step 0: 既存計画の確認
@@ -26,6 +35,31 @@ disable-model-invocation: true
 
 「全て削除して新規作成」が選ばれた場合、`.sprint-loop/` ディレクトリ全体を削除してから Step 1 に進みます。
 「計画のみ残す」が選ばれた場合、実行結果ファイルのみ削除してから Step 1 に進みます。
+
+### Step 0.5: 既存計画ドキュメントのインポート（オプション）
+
+AskUserQuestion で以下を確認:
+
+「既に作成済みの計画ドキュメント（PRD、設計書、タスクリスト等）はありますか？」
+
+| 選択肢 | 説明 |
+|--------|------|
+| なし（デフォルト） | Step 1 のヒアリングから新規に計画を策定 |
+| あり | 既存ドキュメントを読み込み、計画の土台にする |
+
+**「あり」の場合:**
+1. ユーザーにドキュメントのパスを入力してもらう
+2. ドキュメントを読み込み、以下を抽出:
+   - プロジェクト概要、ゴール
+   - 技術スタック
+   - スプリント分割案（あれば）
+   - DoD要件（あれば）
+   - 制約事項
+3. 抽出結果をユーザーに提示し、確認を得る
+4. 不足情報がある場合のみ Step 1 の該当質問を行う（全質問をスキップ可能）
+5. Step 1.5 に進む（DoD軸の確認は必ず行う）
+
+**「なし」の場合:** Step 1 に進む（現行フローと同一）
 
 ### Step 1: ヒアリング
 
@@ -106,23 +140,69 @@ disable-model-invocation: true
 | 50回 | 小規模プロジェクト（3スプリント以下）向け |
 | 100回（デフォルト） | 標準的なプロジェクト向け |
 | 200回 | 大規模プロジェクト（7スプリント以上）向け |
+| 500回 | 超大規模プロジェクト（20スプリント以上）向け |
+| 1000回 | 最大規模プロジェクト（50スプリント以上）向け |
 
 ユーザーの回答を config.json の `max_total_iterations` と `max_dod_retries` に反映します。
 
+**質問3: 計画戦略**
+
+「計画戦略を選択してください」
+
+| 選択肢 | 説明 |
+|--------|------|
+| full（デフォルト） | 全スプリントを一度に詳細化。小〜中規模向け |
+| full-adaptive | 全スプリントを詳細化し、実行中に各スプリント開始前に計画を自律検証・修正 |
+| rolling | 最初の N スプリントのみ詳細化、残りはタイトル+ゴールのみ。大規模・高不確実性向け |
+
+`rolling` 選択時の追加質問:
+- **rolling_horizon**: 「何スプリント先まで詳細化しますか？」（デフォルト: 5）
+
+ユーザーの回答を config.json の `planning_strategy`, `rolling_horizon` に反映します。
+
 ### Step 2: スプリント分割の提案
 
-ヒアリング結果をもとに、3-7個のスプリントに分割した計画を提案します。
+ヒアリング結果をもとに、適切な数のスプリントに分割した計画を提案します。
+目安: 小規模 3-7、中規模 8-15、大規模 16-50。プロジェクトの複雑さに応じて調整してください。
 各スプリントは以下を含みます:
 
 - タイトルと1文のゴール
 - 主要タスク一覧
 - 依存関係（前のスプリントへの依存）
 
+#### Phase グルーピング（8スプリント以上の場合）
+
+8スプリント以上のプロジェクトでは、スプリントを論理的な Phase にグルーピングします。
+Phase は plan.md のセクション構成と state.json の `current_phase` メタデータで表現します。
+ディレクトリ構造は変更しません（`sprints/sprint-NNN/` のフラット構造を維持）。
+
+plan.md の Phase セクション例:
+~~~
+## Phase 1: Foundation (Sprint 1-3)
+- Sprint 1: プロジェクト初期化
+- Sprint 2: コアデータモデル
+- Sprint 3: 基本UI
+
+## Phase 2: Core Features (Sprint 4-8)
+- Sprint 4: ユーザー認証
+...
+~~~
+
+各 spec.md の冒頭に所属 Phase を記載:
+~~~
+> Phase 2: Core Features (Sprint 4-8)
+# Sprint 5: ...
+~~~
+
 ユーザーの承認を得てから次に進みます。
 
 ### Step 3: 各スプリントの詳細化
 
-承認されたスプリントごとに以下のファイルを作成します:
+承認されたスプリントごとに以下のファイルを作成します。
+
+**planning_strategy による分岐:**
+- `full` / `full-adaptive`: 全スプリントの spec.md, design.md, dod.md を作成
+- `rolling`: 最初の `rolling_horizon` スプリントのみ spec.md, design.md, dod.md を作成。残りのスプリントは plan.md にタイトル+ゴールのみ記載
 
 #### spec.md（仕様）
 ```markdown
@@ -161,6 +241,20 @@ disable-model-invocation: true
 {アルゴリズム、パターン、ライブラリ選択の理由}
 ```
 
+#### design.md サイズ目安
+
+- 標準的なスプリント: 50-150行
+- 複雑なスプリント（新アーキテクチャ、複数サブシステム統合）: 150-300行
+- 特殊ドメイン（シェーダーコード、プロトコル定義等を含む場合）: 300-500行
+- 500行を超える場合はスプリント分割を検討すること
+
+#### Per-Sprint DoD 軸オーバーライド
+
+特定のスプリントで不要な DoD 軸がある場合、`config.json` の `sprint_overrides` に記録します。
+例: Sprint 1（基盤構築）では `visual` 軸をスキップ、Sprint 9 でベースライン記録のみ等。
+
+スプリントごとにオーバーライドが必要か検討し、必要な場合は Step 4 の `sprint_overrides` に反映してください。
+
 #### dod.md（受け入れ基準）
 
 `config.json` の `review_axes` に基づいて動的に構成します。
@@ -187,6 +281,14 @@ disable-model-invocation: true
 #### config.json
 ```json
 {
+  "schema_version": 1,
+  "project": {
+    "name": "{プロジェクト名}",
+    "tech_stack": "{技術スタック}"
+  },
+  "planning_strategy": "full",
+  "rolling_horizon": null,
+  "planned_through_sprint": null,
   "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
   "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
   "review_axes": [
@@ -194,7 +296,8 @@ disable-model-invocation: true
     { "id": "spec", "name": "Spec Compliance", "builtin": true },
     { "id": "quality", "name": "Code Quality", "builtin": true }
   ],
-  "created_at": "{ISO timestamp}"
+  "sprint_overrides": {},
+  "created_at": "{ISO 8601 UTC timestamp}"
 }
 ```
 
@@ -210,6 +313,22 @@ disable-model-invocation: true
 }
 ```
 `agent_prompt_hint` はレビューエージェント起動時にプロンプトに注入されます。
+
+#### sprint_overrides の構成
+
+`sprint_overrides` はスプリント番号（文字列キー）ごとの DoD 軸オーバーライドを定義します:
+
+```json
+{
+  "sprint_overrides": {
+    "1": { "skip_axes": ["visual", "perf"] },
+    "9": { "visual": { "pass_criteria": "Record baseline only" } }
+  }
+}
+```
+
+- `skip_axes`: そのスプリントでスキップする軸IDの配列
+- `{axis_id}`: { ... }: 軸固有の設定オーバーライド（`pass_criteria` 等）
 
 ### Step 5: 状態の初期化
 
@@ -233,21 +352,28 @@ disable-model-invocation: true
 状態ファイルの初期値:
 ```json
 {
+  "schema_version": 1,
   "active": false,
   "session_id": null,
   "phase": "planned",
   "current_sprint": 1,
-  "total_sprints": {N},
+  "total_sprints": "{N}",
+  "current_phase": "{Phase名 or null（8スプリント未満の場合はnull）}",
   "current_subphase": null,
   "total_iterations": 0,
   "dod_retry_count": 0,
   "completed_review_axes": [],
   "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
   "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
-  "sprints": [...],
+  "planning_strategy": "config.json から複製",
+  "planned_through_sprint": "rolling の場合: rolling_horizon の値、それ以外: null",
+  "sprints": [
+    { "number": 1, "title": "{タイトル}", "status": "pending" },
+    { "number": 2, "title": "{タイトル}", "status": "pending" }
+  ],
   "started_at": null,
   "completed_at": null,
-  "last_checked_at": "{ISO timestamp}"
+  "last_checked_at": "{ISO 8601 UTC timestamp}"
 }
 ```
 
