@@ -142,7 +142,9 @@ TeamCreate(team_name="sprint-{N}")
        乖離がない場合: plan-revision.md に 'No revision needed' と書く。"
    )
    ```
-2. plan-validator 完了後、`plan-revision.md` のみ読み取り（1行チェック）
+2. plan-validator の完了を待つ:
+   - idle 通知受信後、TaskList で完了を確認
+   - `plan-revision.md` のみ読み取り（1行チェック）
 3. plan-validator をシャットダウン
 4. Phase A（implementing）に進む
 
@@ -174,7 +176,9 @@ TeamCreate(team_name="sprint-{N}")
        .sprint-loop/state/planning-result.md に出力。"
    )
    ```
-3. planner 完了後、`planning-result.md` のみ読み取り
+3. planner の完了を待つ:
+   - idle 通知受信後、TaskList で完了を確認
+   - `planning-result.md` のみ読み取り
 4. planner をシャットダウン
 5. `state.planned_through_sprint` を更新
 6. `current_subphase` を `"implementing"` に戻す
@@ -265,7 +269,10 @@ TeamCreate(team_name="sprint-{N}")
    )
    ```
 
-4. 実装完了を待つ（TaskList で監視）
+4. 実装完了を待つ:
+   - チームメイト（implementor）からの idle 通知を待つ
+   - 通知受信後、TaskList で implementor のタスクが完了していることを確認
+   - `sleep` や `ls` によるポーリングは禁止
 
 5. implementor をシャットダウン（チームは維持）:
    ```
@@ -356,12 +363,11 @@ TeamCreate(team_name="sprint-{N}")
    > **subagent_type 命名規則**: プロジェクトローカル `.claude/agents/` のエージェントは**ベア名**（プレフィックスなし）で参照する。
    > 例: `"test-reviewer"` ○ / `"sprint-loop:test-reviewer"` ✗
 
-5. 各レビューア完了を検知するたびに state を更新:
-   ```
-   // レビューア完了検知時（TaskList で status 変化を確認）
-   state.completed_review_axes に完了した軸の axis.id を追加
-   → sprint-loop-state.json を更新
-   ```
+5. 各レビューアの完了を検知し state を更新:
+   - 各レビューアの idle 通知を待ち、TaskList で完了を確認
+   - 完了した軸の axis.id を `state.completed_review_axes` に追加し sprint-loop-state.json を更新
+   - `completed_review_axes.length === effectiveAxes.length` になるまで繰り返す
+   - `sleep` や `ls` によるポーリングは禁止
 
 6. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
    ```
@@ -389,6 +395,9 @@ TeamCreate(team_name="sprint-{N}")
    > **注**: aggregator は「全レビューア完了 → 必ず起動」の固定パターン。
    > 指揮者が個別レビュー JSON を直接読むと Context を大量消費するため、
    > aggregator に集約させて summary 1ファイルのみ読む設計。
+
+6b. aggregator の完了を待つ:
+    - idle 通知受信後、TaskList で完了を確認
 
 7. 全レビューエージェントと aggregator をシャットダウン:
    ```
@@ -445,3 +454,4 @@ TeamCreate(team_name="sprint-{N}")
 4. **1スプリント1チーム** — `TeamCreate(team_name="sprint-{N}")` でチーム作成、スプリント完了時に `TeamDelete` で一括解放
 5. **フィードバックは具体的に** — rejected時は `action_required` の内容をそのまま implementor に渡す
 6. **subagent_type はベア名** — `"test-reviewer"` であって `"sprint-loop:test-reviewer"` ではない
+7. **待機は TaskList で行う** — `sleep` や `ls` によるポーリング禁止。チームメイトの idle 通知受信後に TaskList で完了を確認して次へ進む
