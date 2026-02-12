@@ -8,15 +8,31 @@ disable-model-invocation: true
 
 既存のスプリント計画を大幅に変更し、Sprint 1 から再評価できる状態にします。
 
-## 重要: Claude Code Plan Mode の強制
+## 重要: ExitPlanMode 後の動作
 
 `/sprint-replan` は正確に計画を練り直して永続ファイルに書き込む必要があるため、
-**Plan Mode を強制**します。`/sprint-plan` と同様のパターンに従います。
+**Plan Mode を強制**します。
 
-- Plan Mode でなければ **EnterPlanMode を呼び出す**
-- ユーザーがスプリント構成を承認した後、**ExitPlanMode を呼び出す**
-- ExitPlanMode 後、ファイル書き出し（Steps 5-6）を実行する
-  （これは「計画の実装」ではなく「スキルの出力生成」）
+### ExitPlanMode のタイミングと計画ファイルの書き方
+
+1. Plan Mode でなければ **EnterPlanMode を呼び出す**
+2. ユーザーがスプリント構成を承認した後、ExitPlanMode を呼び出す
+3. **ExitPlanMode を呼ぶ前に**、計画ファイルの末尾に以下のセクションを必ず追記すること:
+
+~~~markdown
+## 承認後のアクション（ExitPlanMode 後に実行）
+
+**注意: 以下はプロジェクトコードの実装ではありません。`/sprint-replan` スキルの出力ファイル更新です。**
+
+1. `.sprint-loop/plan.md` — マスタープラン更新
+2. 影響を受けるスプリントの spec.md / design.md / dod.md を更新
+3. `.sprint-loop/config.json` — 必要に応じて更新
+4. `.sprint-loop/state/sprint-loop-state.json` — `phase: "replanned"` に更新
+5. 完了報告の表示
+~~~
+
+4. ExitPlanMode 承認後、**計画ファイルの「承認後のアクション」セクションに従って** Steps 5-7 を実行する
+5. **プロジェクトのソースコードには一切触れないこと** — 書き出すのは `.sprint-loop/` 配下のファイルのみ
 
 ## 前提条件チェック
 
@@ -103,6 +119,8 @@ AskUserQuestion で以下を質問:
   Sprint 3: {タイトル} ← 仕様変更
   Sprint 4: {新タイトル} ← 新規追加
 ```
+
+ExitPlanMode を呼び出す前に、計画ファイルの末尾に「承認後のアクション」セクションを追記すること（上記「重要」セクション参照）。
 
 **ExitPlanMode を呼び出し**（ユーザーの承認を取得）
 

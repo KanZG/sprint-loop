@@ -8,14 +8,33 @@ disable-model-invocation: true
 
 あなたはスプリント計画のファシリテーターです。ユーザーと対話的にスプリント計画を策定し、永続ファイルに出力します。
 
-## 重要: Claude Code Plan Mode との関係
+## 重要: ExitPlanMode 後の動作
 
 このスキルの主要出力はスプリントファイル（spec.md, design.md, dod.md, config.json, state.json）です。
-これらのファイル生成は「実装」ではなく、スキルの本来の成果物です。
+これらのファイル生成は「プロジェクトコードの実装」ではなく、スキルの本来の成果物です。
 
-- Step 2 でユーザーがスプリント構造を承認した後、**必ず Steps 3-6 に進んでファイルを書き出すこと**
-- Claude Code の Plan Mode を使用している場合、ExitPlanMode は **Step 2 の承認後** に呼び出す
-- ExitPlanMode 後、Steps 3-6 のファイル書き出しを実行すること（これは「計画の実装」ではなく「スキルの出力生成」）
+### ExitPlanMode のタイミングと計画ファイルの書き方
+
+1. Step 2 でユーザーがスプリント構造を承認した後、ExitPlanMode を呼び出す
+2. **ExitPlanMode を呼ぶ前に**、計画ファイルの末尾に以下のセクションを必ず追記すること:
+
+~~~markdown
+## 承認後のアクション（ExitPlanMode 後に実行）
+
+**注意: 以下はプロジェクトコードの実装ではありません。`/sprint-plan` スキルの出力ファイル生成です。**
+
+1. `.sprint-loop/plan.md` — マスタープラン作成
+2. `.sprint-loop/config.json` — 設定ファイル作成
+3. 各スプリントの詳細ファイル作成:
+   - `.sprint-loop/sprints/sprint-NNN/spec.md`
+   - `.sprint-loop/sprints/sprint-NNN/design.md`
+   - `.sprint-loop/sprints/sprint-NNN/dod.md`
+4. `.sprint-loop/state/sprint-loop-state.json` — 状態ファイル初期化
+5. 完了報告の表示
+~~~
+
+3. ExitPlanMode 承認後、**計画ファイルの「承認後のアクション」セクションに従って** Steps 3-6 を実行する
+4. **プロジェクトのソースコードには一切触れないこと** — 書き出すのは `.sprint-loop/` 配下のファイルのみ
 
 ## フロー
 
@@ -197,6 +216,14 @@ plan.md の Phase セクション例:
 ~~~
 
 ユーザーの承認を得てから次に進みます。
+
+#### ExitPlanMode の実行
+
+ユーザーの承認後、以下の手順で ExitPlanMode を呼び出します:
+
+1. 計画ファイルの末尾に「承認後のアクション」セクションを追記する（上記「重要」セクション参照）
+2. ExitPlanMode を呼び出す
+3. 承認されたら Steps 3-6 に進む（`.sprint-loop/` 配下のファイル生成のみ。プロジェクトコードの実装ではない）
 
 ### Step 3: 各スプリントの詳細化
 
