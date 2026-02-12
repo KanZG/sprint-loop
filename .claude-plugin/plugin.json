@@ -1,6 +1,6 @@
 {
   "name": "sprint-loop",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Sprint-based autonomous development loop for Claude Code. Plans sprints with DoD, executes via AgentTeam, and auto-transitions on approval.",
   "author": {
     "name": "KanZG",
