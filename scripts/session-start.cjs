@@ -79,6 +79,25 @@ function buildRestorationContext(state, config) {
     lines.push('全スプリントが正常に完了しています。');
   } else if (phase === 'failed') {
     lines.push(`実行が失敗しました: ${state.failure_reason || 'unknown reason'}`);
+    lines.push('`/sprint-resume` で最新状態から再開できます。');
+  } else if (phase === 'fixing') {
+    lines.push('Sprint-Loop Fix モードです。現スプリントの修正作業中です。');
+    lines.push(`修正前の Sub-phase: ${state.previous_subphase || 'unknown'}`);
+    lines.push('');
+    lines.push('修正が中断された場合は `/sprint-resume` で再開できます。');
+  } else if (phase === 'replanning') {
+    lines.push('Sprint-Loop Replan モードです。再計画作業中です。');
+    lines.push('');
+    lines.push('`/sprint-replan` で再計画を完了してください。');
+  } else if (phase === 'replanned') {
+    lines.push('Sprint-Loop の再計画が完了しています。');
+    lines.push(`Total sprints: ${state.total_sprints || 0}`);
+    if (state.resume_mode) {
+      lines.push('');
+      lines.push('DoD-first モード: 各スプリントは DoD 評価から開始し、PASS すれば実装スキップします。');
+    }
+    lines.push('');
+    lines.push('`/sprint-resume` で再実行を開始してください。');
   }
 
   lines.push('</session-restore>');
@@ -124,6 +143,12 @@ async function main() {
     } else if (state.phase === 'all_complete') {
       context = buildRestorationContext(state, config);
     } else if (state.phase === 'failed') {
+      context = buildRestorationContext(state, config);
+    } else if (state.phase === 'fixing') {
+      context = buildRestorationContext(state, config);
+    } else if (state.phase === 'replanning') {
+      context = buildRestorationContext(state, config);
+    } else if (state.phase === 'replanned') {
       context = buildRestorationContext(state, config);
     }
 

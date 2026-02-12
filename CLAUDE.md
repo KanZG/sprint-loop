@@ -15,6 +15,9 @@ Sprint-Loop は大規模な開発タスクをスプリント単位で自動実�
 | `/sprint-start` | 自動実行を開始 |
 | `/sprint-status` | 進捗を確認 |
 | `/sprint-cancel` | 実行を停止 |
+| `/sprint-fix` | 現スプリントの小規模修正（自動再開） |
+| `/sprint-replan` | 大規模な仕様変更・再計画 |
+| `/sprint-resume` | 状況に応じた最適な再開 |
 
 ## Architecture
 
@@ -178,7 +181,7 @@ Sprint N 開始
   "schema_version": 1,
   "active": false,
   "session_id": null,
-  "phase": "planned | executing | all_complete | failed",
+  "phase": "planned | executing | fixing | replanning | replanned | all_complete | failed",
   "current_sprint": 1,
   "total_sprints": "N",
   "current_phase": "Phase名 or null",
@@ -188,6 +191,8 @@ Sprint N 開始
   "completed_review_axes": [],
   "planning_strategy": "full | full-adaptive | rolling",
   "planned_through_sprint": "null | number",
+  "resume_mode": false,
+  "previous_subphase": null,
   "sprints": [{ "number": 1, "title": "...", "status": "pending | in_progress | completed" }],
   "started_at": null,
   "completed_at": null,

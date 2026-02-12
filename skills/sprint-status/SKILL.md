@@ -70,6 +70,46 @@ Sprint-Loop Status: 失敗
 Reason: {failure_reason}
 Failed at Sprint: {current_sprint}/{total_sprints}
 Total Iterations: {total_iterations}
+
+`/sprint-resume` で最新状態から再開できます。
+```
+
+### fixing 状態
+```
+Sprint-Loop Status: Fix モード（一時停止中）
+
+Current Sprint: {current_sprint}/{total_sprints} — {タイトル}
+修正前の Sub-phase: {previous_subphase}
+DoD Retries: {dod_retry_count}
+
+修正作業中です。修正完了後に自動的に実行が再開されます。
+修正が中断された場合は `/sprint-resume` で再開できます。
+```
+
+### replanning 状態
+```
+Sprint-Loop Status: Replan モード（再計画中）
+
+Current Sprint: {current_sprint}/{total_sprints}
+Total Iterations: {total_iterations}
+
+再計画作業中です。`/sprint-replan` で再計画を完了してください。
+```
+
+### replanned 状態
+```
+Sprint-Loop Status: 再計画完了（未再開）
+
+Total Sprints: {total_sprints}
+Resume Mode: DoD-first（各スプリントは DoD 評価から開始）
+
+Sprint Progress:
+  [ ] Sprint 1: {タイトル} — pending
+  [ ] Sprint 2: {タイトル} — pending
+  ...
+
+`/sprint-resume` で再実行を開始してください。
+DoD-first モードにより、変更のないスプリントは DoD 評価のみで高速通過します。
 ```
 
 ## 追加情報

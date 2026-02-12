@@ -86,6 +86,15 @@ ${reviewingSection}
 1. result.md にスプリント完了サマリーを書き込み
 2. 次のスプリントへ遷移（current_sprint++）
 3. 全スプリント完了なら phase を "all_complete" に設定
+4. resume_mode が true の場合、次スプリントの current_subphase を "reviewing"（DoD-first）に設定
+
+## resume_mode（DoD-first）について
+${state.resume_mode ? `
+**resume_mode が有効です。** 各スプリントは reviewing（DoD評価）から開始してください。
+- DoD 全 PASS → 実装スキップ、次スプリントも reviewing から
+- DoD いずれか FAIL → implementing に切り替えて通常の実装サイクル
+- 全スプリント完了時 → resume_mode: false に設定
+` : '（通常モード — implementing から開始）'}
 
 ## 重要ルール
 - 永続ファイルを必ず読み込んでから判断すること
@@ -110,6 +119,12 @@ function getPhaseDecision(state) {
     case 'executing':
       // Active execution — block and continue
       return { allow: false };
+
+    case 'fixing':
+    case 'replanning':
+    case 'replanned':
+      // Interactive/waiting phases — user controls flow
+      return { allow: true, reason: 'interactive_phase' };
 
     case 'all_complete':
     case 'failed':
