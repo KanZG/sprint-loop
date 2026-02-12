@@ -307,6 +307,10 @@ plan.md の Phase セクション例:
 
 ### Step 4: 設定ファイルの出力
 
+> **スキーマ準拠（CRITICAL）**: 以下のテンプレートの**フィールド名・型・構造を厳密に守ること**。
+> プログラムコード（.cjs）がこれらを直接パースするため、独自の命名 (camelCase) やデータ構造（sprints をオブジェクトにする等）は使用禁止。
+> 詳細は CLAUDE.md の「Schema Conformance Rules」を参照。
+
 #### config.json
 ```json
 {
@@ -406,6 +410,21 @@ plan.md の Phase セクション例:
 }
 ```
 
+#### 生成後バリデーション
+
+全ファイルの書き出し後、以下を検証してから Step 6 に進むこと:
+
+- [ ] state.json: `schema_version` が `1` である
+- [ ] state.json: `phase` が `"planned"` である（`status` や `"ready"` ではない）
+- [ ] state.json: `current_sprint` が数値 `1` である（文字列 `"sprint-001"` ではない）
+- [ ] state.json: `sprints` が配列 `[{number, title, status}]` である（オブジェクトではない）
+- [ ] state.json: 全フィールド名が `snake_case` である
+- [ ] config.json: `schema_version` が `1` である
+- [ ] config.json: `max_total_iterations` と `max_dod_retries` が存在する
+- [ ] config.json: `planning_strategy` が存在する
+- [ ] config.json: `review_axes` が配列で、各要素に `id`, `name`, `builtin` がある
+- [ ] config.json: 全フィールド名が `snake_case` である
+
 ### Step 6: 完了報告
 
 全ファイルの作成が完了したら、サマリーを表示します:
@@ -431,3 +450,4 @@ Sprint計画が完了しました。
 - **spec.md は「What」（何を作るか）** — ユーザーストーリー、受け入れ条件、変更対象ファイル。関数シグネチャや型定義は含めない
 - **design.md は「How」（どう作るか）** — アーキテクチャ、関数シグネチャ、型定義、アルゴリズム選択理由。spec.md の各タスクに対する具体的な実装方針を記述する
 - ユーザーの承認なしに計画を確定しないこと
+- **state.json と config.json は CLAUDE.md の Schema Conformance Rules に厳密に従うこと** — フィールド名（snake_case 必須）、型（current_sprint は数値）、構造（sprints は配列）を独自に変更してはならない

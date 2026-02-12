@@ -28,6 +28,7 @@ disable-model-invocation: true
 ## 起動手順
 
 1. 状態ファイルを更新:
+   > **スキーマ準拠**: 全フィールド名は `snake_case`。`phase`（`status` ではない）、`current_sprint` は数値、`session_id`（`sessionId` ではない）。
    ```json
    {
      "active": true,
@@ -301,6 +302,9 @@ TeamCreate(team_name="sprint-{N}")
      [dod.md の該当セクション]
      結果を .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json に書き込んでください。
 
+     > **Review JSON スキーマ**: フィールド名は必ず `snake_case`（`sprint_id`, `axis_verdicts`）。
+     > `verdict` は `"approved"` か `"rejected"` のみ（`"pass"` ❌, `"fail"` ❌, `"PASS"` ❌）。
+
      出力JSON形式:
      {
        \"sprint_id\": {N},
@@ -408,6 +412,9 @@ TeamCreate(team_name="sprint-{N}")
 ### Phase C: 結果判定
 
 **全 approved の場合:**
+> **スキーマ準拠**: `sprints` 配列の更新時、各要素は `{number, title, status}` 構造を維持すること。
+> `status` は `"completed"` / `"in_progress"` / `"pending"` のいずれか。
+
 1. `result.md` にスプリント完了サマリーを書き込み
 2. スプリントの status を `"completed"` に更新
 3. state の `sprints` 配列で該当スプリントの status を `"completed"` に更新

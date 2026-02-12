@@ -20,6 +20,8 @@ disable-model-invocation: true
 
 ### Step 1: 実行一時停止
 
+> **スキーマ準拠**: フィールド名は `snake_case`。`phase`（`status` ではない）, `previous_subphase`（`previousSubphase` ではない）。
+
 状態ファイルを更新:
 ```json
 {
@@ -136,6 +138,8 @@ AskUserQuestion で修正案を提示:
 ```
 
 ### Step 7: 状態リセット
+
+> **スキーマ準拠**: `completed_review_axes` は配列 `[]`、`phase` は `"executing"`、`current_subphase` は `"implementing"`。全て `snake_case`。
 
 状態ファイルを更新:
 ```json

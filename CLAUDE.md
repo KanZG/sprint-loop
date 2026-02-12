@@ -200,6 +200,37 @@ Sprint N 開始
 }
 ```
 
+## Schema Conformance Rules（全スキル共通）
+
+state.json と config.json はプログラムコード（stop-hook.cjs, session-start.cjs, safety.cjs）が直接パースします。
+**以下のルールに違反するとループが起動・継続できません。**
+
+### フィールド命名規則
+- **全フィールドは `snake_case`** を使用すること
+- `camelCase` は禁止: `currentSprint` ❌ → `current_sprint` ✅, `totalSprints` ❌ → `total_sprints` ✅, `dodRetryCount` ❌ → `dod_retry_count` ✅, `planStrategy` ❌ → `planning_strategy` ✅, `maxIterations` ❌ → `max_total_iterations` ✅
+
+### state.json の構造ルール
+- ライフサイクル状態は **`phase`** フィールド: `status` ❌, `state` ❌
+- `phase` の許容値: `"planned"`, `"executing"`, `"fixing"`, `"replanning"`, `"replanned"`, `"all_complete"`, `"failed"` — 他の値 (`"ready"` ❌, `"initialized"` ❌, `"running"` ❌) は禁止
+- `current_sprint` は **数値** (例: `1`): `"sprint-001"` ❌, `"1"` ❌
+- `sprints` は **配列**: `[{"number": 1, "title": "...", "status": "pending"}]`
+  - オブジェクト形式 `{"sprint-001": {...}}` ❌
+  - `completed_sprints` / `failed_sprints` への分離 ❌
+- `sprints[].status` の許容値: `"pending"`, `"in_progress"`, `"completed"` のみ
+- `schema_version: 1` を必ず含めること
+
+### config.json の構造ルール
+- 反復上限は `max_total_iterations`: `max_iterations` ❌
+- 計画戦略は `planning_strategy`: `planStrategy` ❌, `strategy` ❌
+- レビュー軸は `review_axes` 配列: 各要素は `{id, name, builtin}` を必須で含む
+- `schema_version: 1` を必ず含めること
+
+### Review JSON の構造ルール（sub-agent 出力）
+- 個別レビュー: `{sprint_id, attempt, timestamp, reviews: {axis_id: {verdict, details, failures}}}`
+  - `verdict` の許容値: `"approved"`, `"rejected"` のみ
+- 集約サマリー: `{sprint_id, attempt, timestamp, overall_verdict, axis_verdicts, action_required}`
+  - `overall_verdict` の許容値: `"approved"`, `"rejected"` のみ
+
 ## Rules for the Orchestrator
 
 When `/sprint-start` is active and you are the orchestrator:
