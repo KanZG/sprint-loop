@@ -16,7 +16,7 @@ disable-model-invocation: true
    - `phase: "planned"` → エラー: "`/sprint-start` で実行を開始してください"
    - `phase: "replanning"` → エラー: "`/sprint-replan` で再計画を完了してください"
    - `phase: "all_complete"` → エラー: "全スプリントは完了済みです"
-3. Plan Mode が有効な場合 → ExitPlanMode を呼び出す
+3. Plan Mode が有効な場合 → Plan ファイルを空にしてから ExitPlanMode を呼び出す（セッションリセット回避）
 
 ## 状態別の挙動
 

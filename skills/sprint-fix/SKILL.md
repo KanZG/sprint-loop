@@ -14,7 +14,7 @@ disable-model-invocation: true
 2. 以下を検証:
    - ファイルが存在しない → エラー: "`/sprint-plan` で計画を策定してください"
    - `active` が `false` または `phase` が `"executing"` でない → エラー: "アクティブな実行がありません。`/sprint-resume` で再開してください"
-3. Plan Mode が有効な場合 → ExitPlanMode を呼び出す
+3. Plan Mode が有効な場合 → Plan ファイルを空にしてから ExitPlanMode を呼び出す（セッションリセット回避）
 
 ## 手順
 
