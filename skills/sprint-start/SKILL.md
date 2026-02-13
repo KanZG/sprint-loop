@@ -276,7 +276,7 @@ TeamCreate(team_name="sprint-{N}")
 4. 実装完了を待つ:
    - チームメイト（implementor）からの idle 通知を待つ
    - 通知受信後、TaskList で implementor のタスクが完了していることを確認
-   - `sleep` や `ls` によるポーリングは禁止
+   - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
 
 5. implementor をシャットダウン（チームは維持）:
    ```
@@ -371,7 +371,7 @@ TeamCreate(team_name="sprint-{N}")
    - 各レビューアの idle 通知を待ち、TaskList で完了を確認
    - 完了した軸の axis.id を `state.completed_review_axes` に追加し sprint-loop-state.json を更新
    - `completed_review_axes.length === effectiveAxes.length` になるまで繰り返す
-   - `sleep` や `ls` によるポーリングは禁止
+   - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
 
 6. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
    ```
@@ -458,4 +458,4 @@ TeamCreate(team_name="sprint-{N}")
 4. **1スプリント1チーム** — `TeamCreate(team_name="sprint-{N}")` でチーム作成、スプリント完了時に `TeamDelete` で一括解放
 5. **フィードバックは具体的に** — rejected時は `action_required` の内容をそのまま implementor に渡す
 6. **subagent_type はベア名** — `"test-reviewer"` であって `"sprint-loop:test-reviewer"` ではない
-7. **待機は TaskList で行う** — `sleep` や `ls` によるポーリング禁止。チームメイトの idle 通知受信後に TaskList で完了を確認して次へ進む
+7. **待機は TaskList で行う** — `sleep`、`ls`、`TaskOutput` によるポーリング禁止。チームメイトの idle 通知受信後に TaskList で完了を確認して次へ進む
