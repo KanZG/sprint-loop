@@ -277,6 +277,8 @@ TeamCreate(team_name="sprint-{N}")
    - チームメイト（implementor）からの idle 通知を待つ
    - 通知受信後、TaskList で implementor のタスクが完了していることを確認
    - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
+   - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
+     implementor に ping を送信して復帰を促す（鉄則 #8）
 
 5. implementor をシャットダウン（チームは維持）:
    ```
@@ -372,6 +374,29 @@ TeamCreate(team_name="sprint-{N}")
    - 完了した軸の axis.id を `state.completed_review_axes` に追加し sprint-loop-state.json を更新
    - `completed_review_axes.length === effectiveAxes.length` になるまで繰り返す
    - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
+   - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
+     未完了のレビューア全員に ping を送信して復帰を促す（鉄則 #8）
+
+   **レビューアが自力で解決できず停止した場合（ping 後も review JSON を書き込めない）:**
+   1. 停止した reviewer をシャットダウン:
+      ```
+      SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")
+      ```
+   2. 同じ軸の reviewer を新規に起動（フレッシュなエージェントで再試行）
+   3. 再試行でも失敗した場合のみ、指揮者がエラー review JSON を直接書き込む:
+      ```json
+      {
+        "sprint_id": {N}, "attempt": {M}, "timestamp": "{ISO}",
+        "reviews": {
+          "{axis.id}": {
+            "verdict": "rejected",
+            "details": "Reviewer agent failed after retry",
+            "failures": ["Agent could not complete evaluation"]
+          }
+        }
+      }
+      ```
+      → `completed_review_axes` に追加して次へ進む
 
 6. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
    ```
@@ -402,6 +427,8 @@ TeamCreate(team_name="sprint-{N}")
 
 6b. aggregator の完了を待つ:
     - idle 通知受信後、TaskList で完了を確認
+    - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
+      aggregator に ping を送信して復帰を促す（鉄則 #8）
 
 7. 全レビューエージェントと aggregator をシャットダウン:
    ```
@@ -459,3 +486,10 @@ TeamCreate(team_name="sprint-{N}")
 5. **フィードバックは具体的に** — rejected時は `action_required` の内容をそのまま implementor に渡す
 6. **subagent_type はベア名** — `"test-reviewer"` であって `"sprint-loop:test-reviewer"` ではない
 7. **待機は TaskList で行う** — `sleep`、`ls`、`TaskOutput` によるポーリング禁止。チームメイトの idle 通知受信後に TaskList で完了を確認して次へ進む
+8. **エージェント死活チェック** — チームメンバー起動後、idle通知もメッセージもないまま
+   stop-hook でターンが戻ってきた場合、待機中の全メンバーに短い ping を送信:
+   ```
+   SendMessage(type="message", recipient="{name}", content="Continue.", summary="ping")
+   ```
+   エラー解決はエージェント自身に任せる。lead の context を節約するため、
+   エージェントに報告を求めず、作業の継続を促すだけにする。

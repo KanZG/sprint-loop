@@ -12,7 +12,7 @@ const { runSafetyChecks } = require('./lib/safety.cjs');
 /**
  * Build the reviewing sub-phase instructions with dynamic review axes from config.
  */
-function buildReviewingInstructions(sprint, config, sprintNum) {
+function buildReviewingInstructions(sprint, config, sprintNum, state) {
   const axes = (config && config.review_axes) || [
     { id: 'test', name: 'Test' },
     { id: 'spec', name: 'Spec Compliance' },
@@ -24,11 +24,27 @@ function buildReviewingInstructions(sprint, config, sprintNum) {
   const skipAxes = overrides.skip_axes || [];
   const effectiveAxes = axes.filter(a => !skipAxes.includes(a.id));
 
+  // Diff against completed axes (align with session-start.cjs logic)
+  const completedAxes = (state && state.completed_review_axes) || [];
+  const remainingAxes = effectiveAxes.filter(a => !completedAxes.includes(a.id));
+
   const axisLines = effectiveAxes.map(a => `   - ${a.id}-reviewer: ${a.name}`).join('\n');
+
+  // Build reviewing status section
+  let reviewingStatus = '';
+  if (completedAxes.length > 0) {
+    reviewingStatus = `\n### Reviewing 状態\n完了済み軸: [${completedAxes.join(', ')}]\n`;
+    if (remainingAxes.length > 0) {
+      reviewingStatus += `未完了軸: [${remainingAxes.map(a => a.id).join(', ')}]\n`;
+      reviewingStatus += `残りの軸のみレビューエージェントを起動してください。完了済み軸は再起動不要です。`;
+    } else {
+      reviewingStatus += `全レビュー軸が完了しています。aggregator を起動して summary を生成してください。`;
+    }
+  }
 
   return `**reviewing（DoD評価中）**:
 1. config.json の review_axes を読み込み、各軸のレビューエージェントを並列起動:
-${axisLines}
+${axisLines}${reviewingStatus}
 2. 結果を .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json に出力
 3. 各レビューア完了時に state の completed_review_axes に軸IDを追加
 4. **全レビューア完了後、即座に aggregator を起動**（判断不要の固定ステップ）:
@@ -47,7 +63,7 @@ function buildContinuationMessage(state, config) {
   const maxDodRetries = state.max_dod_retries || 5;
 
   const sprintNum = state.current_sprint || 1;
-  const reviewingSection = buildReviewingInstructions(sprint, config, sprintNum);
+  const reviewingSection = buildReviewingInstructions(sprint, config, sprintNum, state);
 
   return `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
@@ -100,7 +116,12 @@ ${state.resume_mode ? `
 - 永続ファイルを必ず読み込んでから判断すること
 - 実行結果は必ず永続ファイルに書き込むこと
 - 状態ファイル（sprint-loop-state.json）を各ステップで更新すること
-- チームは作業完了後にシャットダウンすること`;
+- チームは作業完了後にシャットダウンすること
+
+## エージェント死活チェック
+起動済みチームメンバーからの応答がないままこのメッセージを受け取った場合、
+待機中の全メンバーに ping を送信:
+  SendMessage(type="message", recipient="{メンバー名}", content="Continue.", summary="ping")`;
 }
 
 /**
