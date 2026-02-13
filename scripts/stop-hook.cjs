@@ -56,7 +56,7 @@ ${axisLines}${reviewingStatus}
 
 function buildContinuationMessage(state, config) {
   const sprint = String(state.current_sprint || 1).padStart(3, '0');
-  const iteration = (state.total_iterations || 0) + 1;
+  const iteration = state.total_iterations || 0;
   const max = state.max_total_iterations || 100;
   const subphase = state.current_subphase || 'implementing';
   const dodRetries = state.dod_retry_count || 0;
@@ -65,7 +65,24 @@ function buildContinuationMessage(state, config) {
   const sprintNum = state.current_sprint || 1;
   const reviewingSection = buildReviewingInstructions(sprint, config, sprintNum, state);
 
-  return `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
+  // Ping throttle: only include ping instructions when enough time has elapsed
+  const pingInterval = (config && config.ping_interval_seconds) || 60;
+  const lastPingAt = state.last_ping_at ? new Date(state.last_ping_at).getTime() : 0;
+  const now = Date.now();
+  const pingDue = (now - lastPingAt) >= pingInterval * 1000;
+
+  const remainingSeconds = pingDue ? 0 : Math.ceil((pingInterval * 1000 - (now - lastPingAt)) / 1000);
+
+  const healthCheckSection = pingDue
+    ? `## Agent Health Check
+If you receive this message with no response from launched team members,
+send a ping to all waiting members:
+  SendMessage(type="message", recipient="{member_name}", content="Continue.", summary="ping")`
+    : `## Agent Health Check
+Waiting for team member response. Next ping eligibility in ~${remainingSeconds} seconds.
+Do NOT send pings or take any action — just end your turn and wait.`;
+
+  const message = `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
 You are the sprint-loop **orchestrator**. Do NOT write code yourself — delegate everything to AgentTeam.
 
@@ -118,10 +135,9 @@ ${state.resume_mode ? `
 - Update state file (sprint-loop-state.json) at each step
 - Shut down teams after work is complete
 
-## Agent Health Check
-If you receive this message with no response from launched team members,
-send a ping to all waiting members:
-  SendMessage(type="message", recipient="{member_name}", content="Continue.", summary="ping")`;
+${healthCheckSection}`;
+
+  return { message, pingDue };
 }
 
 /**
@@ -192,17 +208,27 @@ async function main() {
       return;
     }
 
-    // Block the stop — increment iteration and continue loop
-    const newIterations = (state.total_iterations || 0) + 1;
-    updateState(projectDir, {
-      total_iterations: newIterations,
-    });
-
+    // Block the stop — build continuation message, throttle idle cycles, protect iteration counter
     const config = readConfig(projectDir);
-    const message = buildContinuationMessage({
+    const displayIterations = (state.total_iterations || 0) + 1;
+    const { message, pingDue } = buildContinuationMessage({
       ...state,
-      total_iterations: newIterations,
+      total_iterations: displayIterations,
     }, config);
+
+    // Throttle idle cycles: sleep when ping is not due to slow down the loop
+    if (!pingDue) {
+      const sleepSeconds = (config && config.throttle_sleep_seconds) || 60;
+      await new Promise(resolve => setTimeout(resolve, sleepSeconds * 1000));
+    }
+
+    // Only increment total_iterations on ping-eligible cycles
+    const stateUpdates = { last_checked_at: new Date().toISOString() };
+    if (pingDue) {
+      stateUpdates.total_iterations = displayIterations;
+      stateUpdates.last_ping_at = new Date().toISOString();
+    }
+    updateState(projectDir, stateUpdates);
 
     console.log(JSON.stringify({
       decision: 'block',

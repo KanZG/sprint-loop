@@ -151,10 +151,10 @@ Do NOT use the old `review-001.json` format.
 
 | Counter | Definition | Increment Trigger |
 |---------|------------|-------------------|
-| `total_iterations` | Number of stop hook blocks (internal mechanism) | Each time the stop hook returns block |
+| `total_iterations` | Number of ping-eligible stop hook blocks (internal mechanism) | Each time the stop hook returns block with ping due |
 | `dod_retry_count` | Number of impl->review cycles for current sprint (quality gate) | Each time DoD is rejected and re-implementation starts |
 
-- `total_iterations` is for the loop safety mechanism (force stop at limit). Never reset.
+- `total_iterations` is for the loop safety mechanism (force stop at limit). Only incremented on ping-eligible cycles (throttled idle cycles do not count). Never reset.
 - `dod_retry_count` is for the quality gate (per-sprint retry limit). Reset to 0 on sprint completion.
 
 ## Config Schema (v1)
@@ -170,6 +170,8 @@ Do NOT use the old `review-001.json` format.
   "max_dod_retries": 5,
   "review_axes": [{ "id": "...", "name": "...", "builtin": true }],
   "sprint_overrides": { "1": { "skip_axes": ["..."] } },
+  "ping_interval_seconds": "number (default: 60)",
+  "throttle_sleep_seconds": "number (default: 60)",
   "created_at": "ISO 8601 UTC timestamp"
 }
 ```
@@ -196,7 +198,8 @@ Do NOT use the old `review-001.json` format.
   "sprints": [{ "number": 1, "title": "...", "status": "pending | in_progress | completed" }],
   "started_at": null,
   "completed_at": null,
-  "last_checked_at": "ISO 8601 UTC timestamp"
+  "last_checked_at": "ISO 8601 UTC timestamp",
+  "last_ping_at": "ISO 8601 UTC timestamp or null"
 }
 ```
 
