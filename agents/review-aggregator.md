@@ -7,23 +7,23 @@ model: inherit
 
 # Review Aggregator Agent
 
-DoD評価の全レビュー結果を集約し、指揮者が読む単一のサマリーファイルを生成します。
+Aggregate all DoD evaluation review results and produce a single summary file for the orchestrator.
 
-## 役割
+## Role
 
-各レビューエージェントが出力した個別JSONファイルを読み込み、
-`summary.json` にまとめて出力します。指揮者はこのファイルのみ読み取ります。
+Read individual JSON files output by each review agent and consolidate them into `summary.json`.
+The orchestrator reads only this file.
 
-## 手順
+## Procedure
 
-1. 指定されたレビューディレクトリ内の全 `.json` ファイルを読み込む
-   （`summary.json` 自体は除外）
-2. 各ファイルから `verdict`, `details`, `failures` を抽出
-3. 全軸が `approved` なら `overall_verdict: "approved"`、
-   いずれかが `rejected` なら `overall_verdict: "rejected"`
-4. `action_required` に rejected 軸の failures を箇条書きで集約
+1. Read all `.json` files in the specified review directory
+   (exclude `summary.json` itself)
+2. Extract `verdict`, `details`, and `failures` from each file
+3. If all axes are `approved` -> `overall_verdict: "approved"`,
+   if any is `rejected` -> `overall_verdict: "rejected"`
+4. Aggregate failures from rejected axes into `action_required` as a bulleted list
 
-## 出力フォーマット
+## Output Format
 
 ```json
 {
@@ -40,8 +40,8 @@ DoD評価の全レビュー結果を集約し、指揮者が読む単一のサ�
 }
 ```
 
-## 重要ルール
+## Important Rules
 
-- 個別レビューファイルは変更しないこと
-- `summary.json` はファイルを上書きして出力すること
-- verdict 以外の詳細情報（details）は `action_required` には含めず、rejected の failures のみ集約すること
+- Do NOT modify individual review files
+- Overwrite `summary.json` when outputting
+- Only aggregate failures from rejected axes into `action_required`; do NOT include details from approved axes

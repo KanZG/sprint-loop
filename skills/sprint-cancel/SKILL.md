@@ -4,20 +4,20 @@ description: Safely stop sprint-loop execution
 disable-model-invocation: true
 ---
 
-# /sprint-cancel — 実行停止
+# /sprint-cancel — Stop Execution
 
-Sprint-Loop の実行を安全に停止します。
+Safely stop Sprint-Loop execution.
 
-## 手順
+## Procedure
 
-1. `.sprint-loop/state/sprint-loop-state.json` を読み込む
+1. Read `.sprint-loop/state/sprint-loop-state.json`
 
-2. 状態ファイルが存在しない、または `active` が `false` の場合:
+2. If the state file does not exist or `active` is `false`:
    ```
-   Sprint-Loop: アクティブな実行はありません。
+   Sprint-Loop: No active execution.
    ```
 
-3. アクティブな実行がある場合、状態を更新:
+3. If there is an active execution, update state:
    ```json
    {
      "active": false,
@@ -27,21 +27,21 @@ Sprint-Loop の実行を安全に停止します。
    }
    ```
 
-4. 確認メッセージを表示:
+4. Display confirmation message:
    ```
-   Sprint-Loop を停止しました。
+   Sprint-Loop stopped.
 
-   停止時点:
+   State at stop:
      Sprint: {current_sprint}/{total_sprints}
      Sub-phase: {current_subphase}
      Iteration: {total_iterations}
 
-   計画ファイルは保持されています。
-   再開するには状態をリセットして `/sprint-start` を実行してください。
+   Plan files are preserved.
+   To resume, reset the state and run `/sprint-start`.
    ```
 
-## 注意事項
+## Notes
 
-- 実行中のAgentTeamは自動的には停止しません。Stop hookが次にブロックしなくなるため、セッション終了時に停止します。
-- 計画ファイル（spec.md, design.md, dod.md）は削除しません。
-- 再開する場合は、状態ファイルを手動でリセットするか、`/sprint-plan` で再計画してください。
+- Running AgentTeams do not stop automatically. They stop when the session ends because the stop hook no longer blocks.
+- Plan files (spec.md, design.md, dod.md) are NOT deleted.
+- To resume, manually reset the state file or replan with `/sprint-plan`.

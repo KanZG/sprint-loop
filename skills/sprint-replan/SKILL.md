@@ -4,172 +4,171 @@ description: Major replanning of sprint structure with Plan Mode enforcement
 disable-model-invocation: true
 ---
 
-# /sprint-replan — 大規模な仕様変更・再計画
+# /sprint-replan — Major Specification Changes and Replanning
 
-既存のスプリント計画を大幅に変更し、Sprint 1 から再評価できる状態にします。
+Substantially revise the existing sprint plan, resetting to a state where re-evaluation starts from Sprint 1.
 
-## 重要: ExitPlanMode 後の動作
+## Important: Behavior After ExitPlanMode
 
-`/sprint-replan` は正確に計画を練り直して永続ファイルに書き込む必要があるため、
-**Plan Mode を強制**します。
+`/sprint-replan` requires precise plan revision and writing to persistent files, so it **enforces Plan Mode**.
 
-### ExitPlanMode のタイミングと計画ファイルの書き方
+### When to Call ExitPlanMode and How to Write the Plan File
 
-1. Plan Mode でなければ **EnterPlanMode を呼び出す**
-2. ユーザーがスプリント構成を承認した後、ExitPlanMode を呼び出す
-3. **ExitPlanMode を呼ぶ前に**、計画ファイルの末尾に以下のセクションを必ず追記すること:
+1. If not in Plan Mode, **call EnterPlanMode**
+2. After the user approves the sprint structure, call ExitPlanMode
+3. **Before calling ExitPlanMode**, append the following section to the end of the plan file:
 
 ~~~markdown
-## 承認後のアクション（ExitPlanMode 後に実行）
+## Post-Approval Actions (Execute After ExitPlanMode)
 
-**注意: 以下はプロジェクトコードの実装ではありません。`/sprint-replan` スキルの出力ファイル更新です。**
+**Note: The following are NOT project code implementations. These are `/sprint-replan` skill output file updates.**
 
-1. `.sprint-loop/plan.md` — マスタープラン更新
-2. 影響を受けるスプリントの spec.md / design.md / dod.md を更新
-3. `.sprint-loop/config.json` — 必要に応じて更新
-4. `.sprint-loop/state/sprint-loop-state.json` — `phase` を更新（元の phase が `planned` なら `planned` を維持、それ以外は `replanned`）
-5. 完了報告の表示
+1. `.sprint-loop/plan.md` — Update master plan
+2. Update spec.md / design.md / dod.md for affected sprints
+3. `.sprint-loop/config.json` — Update if needed
+4. `.sprint-loop/state/sprint-loop-state.json` — Update `phase` (keep `planned` if original phase was `planned`, otherwise set to `replanned`)
+5. Display completion report
 ~~~
 
-4. ExitPlanMode 承認後、**計画ファイルの「承認後のアクション」セクションに従って** Steps 5-7 を実行する
-5. **プロジェクトのソースコードには一切触れないこと** — 書き出すのは `.sprint-loop/` 配下のファイルのみ
+4. After ExitPlanMode approval, **follow the "Post-Approval Actions" section in the plan file** to execute Steps 5-7
+5. **Do NOT touch project source code** — only write files under `.sprint-loop/`
 
-## 前提条件チェック
+## Prerequisite Check
 
-1. `.sprint-loop/state/sprint-loop-state.json` を読み込む
-2. 以下を検証:
-   - `.sprint-loop/` ディレクトリが存在しない → エラー: "`/sprint-plan` で計画を策定してください"
-3. Plan Mode でなければ → EnterPlanMode を呼び出す
+1. Read `.sprint-loop/state/sprint-loop-state.json`
+2. Validate:
+   - `.sprint-loop/` directory does not exist -> Error: "Create a plan with `/sprint-plan` first"
+3. If not in Plan Mode -> Call EnterPlanMode
 
-## 手順
+## Procedure
 
-### Step 1: 状態遷移
+### Step 1: State Transition
 
-**まず、現在の `phase` の値を記録しておくこと。** Step 6 で phase の設定値を判定するために必要。
-（例: 元の phase が `"planned"` なら、一度も実行されていない状態を意味する）
+**First, record the current `phase` value.** This is needed to determine the phase setting in Step 6.
+(e.g., if the original phase was `"planned"`, it means execution has never started)
 
-現在の状態に応じて更新:
+Update based on current state:
 
-- `active: true` の場合（実行中だった）:
+- If `active: true` (was executing):
   ```json
   {
     "phase": "replanning",
     "active": false
   }
   ```
-- `active: false` の場合（既に停止していた）:
+- If `active: false` (already stopped):
   ```json
   {
     "phase": "replanning"
   }
   ```
 
-### Step 2: 現状表示
+### Step 2: Display Current Status
 
-以下の情報を表示:
+Display the following information:
 
-1. `.sprint-loop/plan.md` のサマリー
-2. 各スプリントの status（completed / in_progress / pending）
-3. 完了済みスプリントがある場合、各 `result.md` のサマリー
+1. Summary of `.sprint-loop/plan.md`
+2. Status of each sprint (completed / in_progress / pending)
+3. If completed sprints exist, summary of each `result.md`
 
-表示フォーマット:
+Display format:
 ```
-Sprint-Loop Replan モード
+Sprint-Loop Replan Mode
 
-現在の計画:
+Current Plan:
   Total sprints: {total_sprints}
   Completed: {completed_count}
   In progress: Sprint {current_sprint}
 
 Sprint Progress:
-  [x] Sprint 1: {タイトル} — completed
-  [x] Sprint 2: {タイトル} — completed
-  [>] Sprint 3: {タイトル} — in_progress
-  [ ] Sprint 4: {タイトル} — pending
+  [x] Sprint 1: {title} — completed
+  [x] Sprint 2: {title} — completed
+  [>] Sprint 3: {title} — in_progress
+  [ ] Sprint 4: {title} — pending
 ```
 
-### Step 3: ヒアリング
+### Step 3: Gather Requirements
 
-AskUserQuestion で以下を質問:
+Ask via AskUserQuestion:
 
-「何を変更しますか？ スプリント構成の変更、仕様の大幅変更、スプリントの追加・削除など、自由に記述してください。」
+"What changes do you want to make? Describe freely: sprint structure changes, major specification changes, adding/removing sprints, etc."
 
-ユーザーの回答を受け取り、変更の影響範囲を分析する。
+Receive the user's response and analyze the scope of impact.
 
-### Step 3.5: 新しいスプリント構成の提案
+### Step 3.5: Propose New Sprint Structure
 
-変更要求をもとに、新しいスプリント構成を提案:
+Based on the change request, propose a new sprint structure:
 
-1. 既存のスプリント構成をベースに差分を提示
-2. 影響を受けるスプリントを明示
-3. DoD 軸の変更があれば確認
+1. Present differences against the existing sprint structure
+2. Highlight affected sprints
+3. Confirm DoD axis changes if any
 
-追加の質問が必要な場合は AskUserQuestion で確認。
+Use AskUserQuestion for additional clarification if needed.
 
-### Step 4: 差分表示と承認
+### Step 4: Show Diff and Get Approval
 
-変更前後のスプリント構成を比較表示:
+Display before/after sprint structure comparison:
 
 ```
-変更前:
-  Sprint 1: {旧タイトル} (completed)
-  Sprint 2: {旧タイトル} (completed)
-  Sprint 3: {旧タイトル} (in_progress)
+Before:
+  Sprint 1: {old title} (completed)
+  Sprint 2: {old title} (completed)
+  Sprint 3: {old title} (in_progress)
 
-変更後:
-  Sprint 1: {タイトル} (変更なし)
-  Sprint 2: {タイトル} ← 仕様変更
-  Sprint 3: {タイトル} ← 仕様変更
-  Sprint 4: {新タイトル} ← 新規追加
+After:
+  Sprint 1: {title} (no change)
+  Sprint 2: {title} <- spec changed
+  Sprint 3: {title} <- spec changed
+  Sprint 4: {new title} <- newly added
 ```
 
-ExitPlanMode を呼び出す前に、計画ファイルの末尾に「承認後のアクション」セクションを追記すること（上記「重要」セクション参照）。
+Append the "Post-Approval Actions" section to the end of the plan file before calling ExitPlanMode (see "Important" section above).
 
-**ExitPlanMode を呼び出し**（ユーザーの承認を取得）
+**Call ExitPlanMode** (obtain user approval)
 
---- ExitPlanMode 承認後 ---
+--- After ExitPlanMode Approval ---
 
-### Step 5: ファイル書き出し（スキルの出力生成）
+### Step 5: Write Files (Skill Output Generation)
 
-承認された変更を適用:
+Apply the approved changes:
 
-1. `plan.md` を更新
-2. 影響を受ける全スプリントの spec.md / design.md / dod.md を更新
-3. `config.json` を更新（必要に応じて）
-4. 新規スプリントがある場合、ディレクトリとファイルを作成
+1. Update `plan.md`
+2. Update spec.md / design.md / dod.md for all affected sprints
+3. Update `config.json` (if needed)
+4. Create directories and files for new sprints
 
-#### ファイル保全ルール
-- 変更のないスプリントの spec/design/dod はそのまま保持
-- 完了済みスプリントの result.md / execution-log.md / reviews/ は履歴として保持
-- 削除されたスプリントのディレクトリは残すが state.sprints からは除外
+#### File Preservation Rules
+- Keep spec/design/dod unchanged for unaffected sprints
+- Preserve result.md / execution-log.md / reviews/ of completed sprints as history
+- Keep directories of deleted sprints but exclude them from state.sprints
 
-### Step 6: 状態更新
+### Step 6: State Update
 
-> **スキーマ準拠（CRITICAL）**: `sprints` は必ず**配列** `[{number, title, status}]` で書くこと。
-> オブジェクト形式 (`{"sprint-001": {...}}`) や、`completed_sprints` / `failed_sprints` への分離は禁止。
-> `current_sprint` は数値 `1`。全フィールド名は `snake_case`。`phase` は `"planned"` または `"replanned"`（`status` ではない）。
+> **Schema Conformance (CRITICAL)**: `sprints` MUST be an **array** `[{number, title, status}]`.
+> Object format (`{"sprint-001": {...}}`) and splitting into `completed_sprints` / `failed_sprints` are prohibited.
+> `current_sprint` is a number `1`. All field names use `snake_case`. `phase` is `"planned"` or `"replanned"` (NOT `status`).
 
-状態ファイルを更新。**Step 1 で記録した元の phase に応じて `phase` と `resume_mode` を分岐させる:**
+Update the state file. **Branch `phase` and `resume_mode` based on the original phase recorded in Step 1:**
 
-- **元の phase が `"planned"` だった場合**（一度も実行されていない）:
+- **If the original phase was `"planned"`** (never executed):
   - `phase: "planned"`, `resume_mode: false`
-  - 理由: 実装履歴がないため DoD-first は無意味。`/sprint-start` で新規実行する。
+  - Reason: No execution history, so DoD-first is meaningless. Use `/sprint-start` for fresh execution.
 
-- **それ以外の場合**（実行履歴がある）:
+- **Otherwise** (has execution history):
   - `phase: "replanned"`, `resume_mode: true`
-  - 理由: `/sprint-resume` で DoD-first モードによる効率的な再評価を行う。
+  - Reason: Use `/sprint-resume` for efficient re-evaluation via DoD-first mode.
 
 ```json
 {
-  "phase": "planned or replanned (上記の分岐に従う)",
+  "phase": "planned or replanned (follow branching above)",
   "active": false,
   "current_sprint": 1,
   "current_subphase": null,
-  "total_sprints": "{新しい総数}",
+  "total_sprints": "{new total}",
   "total_iterations": 0,
   "dod_retry_count": 0,
   "completed_review_axes": [],
-  "resume_mode": "false or true (上記の分岐に従う)",
+  "resume_mode": "false or true (follow branching above)",
   "previous_subphase": null,
   "sprints": [
     { "number": 1, "title": "...", "status": "pending" },
@@ -178,51 +177,51 @@ ExitPlanMode を呼び出す前に、計画ファイルの末尾に「承認後�
 }
 ```
 
-**注意:** 全スプリントの status を `"pending"` にリセットする。
+**Note:** Reset all sprint statuses to `"pending"`.
 
-### Step 7: 完了報告
+### Step 7: Completion Report
 
-**元の phase に応じて案内メッセージを切り替える:**
+**Switch the guidance message based on the original phase:**
 
-#### 元の phase が `"planned"` だった場合:
+#### If the original phase was `"planned"`:
 ```
-Sprint-Loop Replan 完了
+Sprint-Loop Replan Complete
 
-変更サマリー:
-  {変更内容の要約}
+Change Summary:
+  {summary of changes}
 
-新しいスプリント構成:
-  Sprint 1: {タイトル}
-  Sprint 2: {タイトル}
+New Sprint Structure:
+  Sprint 1: {title}
+  Sprint 2: {title}
   ...
 
-Total sprints: {新しい総数}
+Total sprints: {new total}
 
-`/sprint-start` で実行を開始してください。
+Run `/sprint-start` to begin execution.
 ```
 
-#### それ以外の場合:
+#### Otherwise:
 ```
-Sprint-Loop Replan 完了
+Sprint-Loop Replan Complete
 
-変更サマリー:
-  {変更内容の要約}
+Change Summary:
+  {summary of changes}
 
-新しいスプリント構成:
-  Sprint 1: {タイトル}
-  Sprint 2: {タイトル}
+New Sprint Structure:
+  Sprint 1: {title}
+  Sprint 2: {title}
   ...
 
-Total sprints: {新しい総数}
+Total sprints: {new total}
 
-`/sprint-resume` で再実行を開始してください。
-DoD-first モードにより、変更のないスプリントは DoD 評価のみで高速通過します。
+Run `/sprint-resume` to begin re-execution.
+DoD-first mode will fast-track unchanged sprints with DoD evaluation only.
 ```
 
-## 重要ルール
+## Important Rules
 
-- Plan Mode を必ず使用すること
-- 変更前後の差分を明確に提示し、ユーザーの承認を得ること
-- 完了済みスプリントの履歴ファイルを削除しないこと
-- resume_mode は元の phase に応じて設定すること（`planned` → `false`, それ以外 → `true`）
-- 全スプリントの status を "pending" にリセットすること
+- Plan Mode MUST be used
+- Clearly present before/after diffs and obtain user approval
+- Do NOT delete history files of completed sprints
+- Set resume_mode based on the original phase (`planned` -> `false`, otherwise -> `true`)
+- Reset all sprint statuses to "pending"

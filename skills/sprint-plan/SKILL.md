@@ -4,125 +4,125 @@ description: Interactive sprint planning - create specs, designs, and DoD for ea
 disable-model-invocation: true
 ---
 
-# /sprint-plan — スプリント計画策定
+# /sprint-plan — Sprint Planning
 
-あなたはスプリント計画のファシリテーターです。ユーザーと対話的にスプリント計画を策定し、永続ファイルに出力します。
+You are a sprint planning facilitator. Interactively develop a sprint plan with the user and output it to persistent files.
 
-## 重要: ExitPlanMode 後の動作
+## Important: Behavior After ExitPlanMode
 
-このスキルの主要出力はスプリントファイル（spec.md, design.md, dod.md, config.json, state.json）です。
-これらのファイル生成は「プロジェクトコードの実装」ではなく、スキルの本来の成果物です。
+The primary outputs of this skill are sprint files (spec.md, design.md, dod.md, config.json, state.json).
+These file generations are the skill's intended deliverables, not project code implementation.
 
-### ExitPlanMode のタイミングと計画ファイルの書き方
+### ExitPlanMode Timing and Writing Plan Files
 
-1. Step 2 でユーザーがスプリント構造を承認した後、ExitPlanMode を呼び出す
-2. **ExitPlanMode を呼ぶ前に**、計画ファイルの末尾に以下のセクションを必ず追記すること:
+1. Call ExitPlanMode after the user approves the sprint structure in Step 2
+2. **Before calling ExitPlanMode**, always append the following section to the end of the plan file:
 
 ~~~markdown
-## 承認後のアクション（ExitPlanMode 後に実行）
+## Post-Approval Actions (Execute after ExitPlanMode)
 
-**注意: 以下はプロジェクトコードの実装ではありません。`/sprint-plan` スキルの出力ファイル生成です。**
+**Note: The following is NOT project code implementation. It is `/sprint-plan` skill output file generation.**
 
-1. `.sprint-loop/plan.md` — マスタープラン作成
-2. `.sprint-loop/config.json` — 設定ファイル作成
-3. 各スプリントの詳細ファイル作成:
+1. `.sprint-loop/plan.md` — Create master plan
+2. `.sprint-loop/config.json` — Create configuration file
+3. Per-sprint detail files:
    - `.sprint-loop/sprints/sprint-NNN/spec.md`
    - `.sprint-loop/sprints/sprint-NNN/design.md`
    - `.sprint-loop/sprints/sprint-NNN/dod.md`
-4. `.sprint-loop/state/sprint-loop-state.json` — 状態ファイル初期化
-5. 完了報告の表示
+4. `.sprint-loop/state/sprint-loop-state.json` — Initialize state file
+5. Display completion report
 ~~~
 
-3. ExitPlanMode 承認後、**計画ファイルの「承認後のアクション」セクションに従って** Steps 3-6 を実行する
-4. **プロジェクトのソースコードには一切触れないこと** — 書き出すのは `.sprint-loop/` 配下のファイルのみ
+3. After ExitPlanMode approval, execute Steps 3-6 **following the "Post-Approval Actions" section in the plan file**
+4. **Do not touch project source code** — only write files under `.sprint-loop/`
 
-## フロー
+## Flow
 
-### Step 0: 既存計画の確認
+### Step 0: Check for Existing Plan
 
-ヒアリングを開始する前に、既存の `.sprint-loop/` ディレクトリの有無を確認します。
+Before starting the interview, check for an existing `.sprint-loop/` directory.
 
-存在する場合、AskUserQuestion で以下を確認:
+If it exists, confirm with AskUserQuestion:
 
-「前回のスプリント計画（.sprint-loop/）が残っています。どうしますか？」
+"A previous sprint plan (.sprint-loop/) exists. What would you like to do?"
 
-| 選択肢 | 説明 |
-|--------|------|
-| 全て削除して新規作成 | .sprint-loop/ を丸ごと削除し、新しい計画を開始 |
-| 計画のみ残して実行結果を削除 | plan.md と config.json は保持し、state/, sprints/*/reviews/, sprints/*/execution-log.md, sprints/*/result.md, logs/ を削除 |
-| そのまま上書き | 既存ファイルを保持し、同名ファイルのみ上書き |
+| Option | Description |
+|--------|-------------|
+| Delete all and start fresh | Delete the entire .sprint-loop/ directory and start a new plan |
+| Keep plan, delete execution results | Retain plan.md and config.json; delete state/, sprints/*/reviews/, sprints/*/execution-log.md, sprints/*/result.md, logs/ |
+| Overwrite in place | Keep existing files, overwrite only files with the same name |
 
-「全て削除して新規作成」が選ばれた場合、`.sprint-loop/` ディレクトリ全体を削除してから Step 1 に進みます。
-「計画のみ残す」が選ばれた場合、実行結果ファイルのみ削除してから Step 1 に進みます。
+If "Delete all and start fresh" is selected, delete the entire `.sprint-loop/` directory then proceed to Step 1.
+If "Keep plan" is selected, delete only execution result files then proceed to Step 1.
 
-### Step 0.5: 既存計画ドキュメントのインポート（オプション）
+### Step 0.5: Import Existing Planning Documents (optional)
 
-AskUserQuestion で以下を確認:
+Confirm with AskUserQuestion:
 
-「既に作成済みの計画ドキュメント（PRD、設計書、タスクリスト等）はありますか？」
+"Do you have existing planning documents (PRD, design docs, task lists, etc.)?"
 
-| 選択肢 | 説明 |
-|--------|------|
-| なし（デフォルト） | Step 1 のヒアリングから新規に計画を策定 |
-| あり | 既存ドキュメントを読み込み、計画の土台にする |
+| Option | Description |
+|--------|-------------|
+| None (default) | Start fresh from Step 1 interview |
+| Yes | Load existing documents as the planning foundation |
 
-**「あり」の場合:**
-1. ユーザーにドキュメントのパスを入力してもらう
-2. ドキュメントを読み込み、以下を抽出:
-   - プロジェクト概要、ゴール
-   - 技術スタック
-   - スプリント分割案（あれば）
-   - DoD要件（あれば）
-   - 制約事項
-3. 抽出結果をユーザーに提示し、確認を得る
-4. 不足情報がある場合のみ Step 1 の該当質問を行う（全質問をスキップ可能）
-5. Step 1.5 に進む（DoD軸の確認は必ず行う）
+**If "Yes":**
+1. Ask the user for the document path(s)
+2. Read the documents and extract:
+   - Project overview and goals
+   - Tech stack
+   - Sprint breakdown (if available)
+   - DoD requirements (if available)
+   - Constraints
+3. Present extracted results to the user for confirmation
+4. Ask only the Step 1 questions where information is missing (all questions can be skipped)
+5. Proceed to Step 1.5 (DoD axis confirmation is always required)
 
-**「なし」の場合:** Step 1 に進む（現行フローと同一）
+**If "None":** Proceed to Step 1 (same as current flow)
 
-### Step 1: ヒアリング
+### Step 1: Interview
 
-ユーザーに以下を質問してください（AskUserQuestion ツールを使用）:
+Ask the user the following (using the AskUserQuestion tool):
 
-1. **何を作るか**: プロジェクトの概要、ゴール
-2. **技術スタック**: 言語、フレームワーク、ツール
-3. **制約**: 時間、既存コード、互換性要件
-4. **スコープ**: 最小限の機能（MVP）か、フル機能か
+1. **What to build**: Project overview and goals
+2. **Tech stack**: Languages, frameworks, tools
+3. **Constraints**: Time, existing code, compatibility requirements
+4. **Scope**: Minimum viable product (MVP) or full feature set
 
-### Step 1.5: DoD評価軸のカスタマイズ
+### Step 1.5: DoD Evaluation Axis Customization
 
-スプリント分割の前に、DoD（Definition of Done）の評価軸をユーザーと決定します。
+Before sprint breakdown, determine the DoD (Definition of Done) evaluation axes with the user.
 
-**デフォルト3軸:**
-- `test` — テスト実行＆合格判定
-- `spec` — 仕様準拠チェック
-- `quality` — ビルド・lint・型チェック
+**Default 3 axes:**
+- `test` — Test execution and pass/fail judgment
+- `spec` — Specification compliance check
+- `quality` — Build, lint, and type checks
 
-**プロジェクト種別に応じた追加軸の提案（AskUserQuestion で確認）:**
+**Suggest additional axes based on project type (confirm with AskUserQuestion):**
 
-| プロジェクト種別 | 推奨追加軸 |
-|-----------------|-----------|
-| ゲーム開発 | `visual`（スクリーンショット検証）, `perf`（FPS/メモリ）, `gameplay-log`（ランタイムログ解析） |
-| Web フロントエンド | `visual`（UI スクリーンショット比較）, `a11y`（アクセシビリティ）, `responsive`（レスポンシブ対応） |
-| API / バックエンド | `api-contract`（OpenAPI/スキーマ準拠）, `perf`（レスポンスタイム）, `security`（脆弱性チェック） |
-| データパイプライン | `data-accuracy`（出力精度）, `perf`（処理時間）, `idempotency`（冪等性） |
-| CLI ツール | `ux`（ヘルプ表示・エラーメッセージ）, `perf`（起動時間） |
+| Project Type | Recommended Additional Axes |
+|-------------|---------------------------|
+| Game development | `visual` (screenshot validation), `perf` (FPS/memory), `gameplay-log` (runtime log analysis) |
+| Web frontend | `visual` (UI screenshot comparison), `a11y` (accessibility), `responsive` (responsive design) |
+| API / Backend | `api-contract` (OpenAPI/schema compliance), `perf` (response time), `security` (vulnerability check) |
+| Data pipeline | `data-accuracy` (output accuracy), `perf` (processing time), `idempotency` (idempotency) |
+| CLI tool | `ux` (help display, error messages), `perf` (startup time) |
 
-ユーザーには以下を質問:
+Ask the user:
 
-1. 「デフォルト3軸（test/spec/quality）以外に追加したい評価軸はありますか？」
-   - プロジェクト種別に応じた候補を提示
-   - 自由記述も受け付ける
-2. 各カスタム軸について:
-   - **評価方法**: どのように合否判定するか（コマンド実行、ファイル検証、スクリーンショット比較、ログ解析等）
-   - **合格基準**: 具体的な閾値や条件
-   - **必要なツール/コマンド**: 評価に必要な外部ツール
-   - **エージェント能力**: レビューエージェントにどの能力を許可するか
-     - `read_only` — ファイル読み取りのみ（静的解析、コードレビュー）
-     - `bash` — Bash コマンド実行可（ビルド、テスト、CLI実行）
-     - `browser` — ブラウザ操作可（スクリーンショット、UI検証）
+1. "Would you like to add evaluation axes beyond the default 3 (test/spec/quality)?"
+   - Present candidates based on project type
+   - Accept free-form input as well
+2. For each custom axis:
+   - **Evaluation method**: How to determine pass/fail (command execution, file verification, screenshot comparison, log analysis, etc.)
+   - **Pass criteria**: Specific thresholds or conditions
+   - **Required tools/commands**: External tools needed for evaluation
+   - **Agent capabilities**: What capabilities to grant the review agent
+     - `read_only` — File reading only (static analysis, code review)
+     - `bash` — Bash command execution (build, test, CLI execution)
+     - `browser` — Browser operation (screenshots, UI verification)
 
-カスタム軸ごとに以下を `config.json` に記録:
+Record each custom axis in `config.json`:
 ```json
 {
   "id": "visual",
@@ -136,194 +136,194 @@ AskUserQuestion で以下を確認:
 }
 ```
 
-### Step 1.7: ループ設定のカスタマイズ
+### Step 1.7: Loop Configuration Customization
 
-スプリント分割の前に、ループの安全制限をユーザーと決定します（AskUserQuestion を使用）。
+Before sprint breakdown, determine the loop safety limits with the user (using AskUserQuestion).
 
-**質問1: スプリントあたりのDoD最大リトライ回数**
+**Question 1: Max DoD retries per sprint**
 
-「1スプリントでDoD評価が不合格だった場合、最大何回まで再実装を試みますか？」
+"How many times should re-implementation be attempted when DoD evaluation fails for a sprint?"
 
-| 選択肢 | 説明 |
-|--------|------|
-| 3回 | 小規模・シンプルなタスク向け。早めに失敗を検知 |
-| 5回（デフォルト） | 標準的なプロジェクト向け |
-| 10回 | 複雑なタスクで多くの修正サイクルが必要な場合 |
+| Option | Description |
+|--------|-------------|
+| 3 times | For small, simple tasks. Detect failures early |
+| 5 times (default) | For standard projects |
+| 10 times | For complex tasks requiring many fix cycles |
 
-**質問2: 全体の最大ループ回数**
+**Question 2: Overall max loop count**
 
-「Stop hookの最大ブロック回数（安全上限）をいくつに設定しますか？この値に達するとループは強制停止します。」
+"What should the max stop hook block count (safety limit) be? The loop force-stops when this limit is reached."
 
-| 選択肢 | 説明 |
-|--------|------|
-| 50回 | 小規模プロジェクト（3スプリント以下）向け |
-| 100回（デフォルト） | 標準的なプロジェクト向け |
-| 200回 | 大規模プロジェクト（7スプリント以上）向け |
-| 500回 | 超大規模プロジェクト（20スプリント以上）向け |
-| 1000回 | 最大規模プロジェクト（50スプリント以上）向け |
+| Option | Description |
+|--------|-------------|
+| 50 | For small projects (3 sprints or fewer) |
+| 100 (default) | For standard projects |
+| 200 | For large projects (7+ sprints) |
+| 500 | For very large projects (20+ sprints) |
+| 1000 | For maximum-scale projects (50+ sprints) |
 
-ユーザーの回答を config.json の `max_total_iterations` と `max_dod_retries` に反映します。
+Apply the user's answers to `max_total_iterations` and `max_dod_retries` in config.json.
 
-**質問3: 計画戦略**
+**Question 3: Planning strategy**
 
-**重要: プロジェクト規模に関わらず、必ず以下の3つ全てを選択肢として提示すること。** 説明文の「〜向け」は参考情報であり、選択肢のフィルタリング基準ではない。
+**Important: Always present all 3 options regardless of project size.** The "suited for" descriptions are reference information, not selection filters.
 
-「計画戦略を選択してください」
+"Select a planning strategy:"
 
-| 選択肢 | 説明 |
-|--------|------|
-| full（デフォルト） | 全スプリントを一度に詳細化。小〜中規模向け |
-| full-adaptive | 全スプリントを詳細化し、実行中に各スプリント開始前に計画を自律検証・修正 |
-| rolling | 最初の N スプリントのみ詳細化、残りはタイトル+ゴールのみ。大規模・高不確実性向け |
+| Option | Description |
+|--------|-------------|
+| full (default) | Detail all sprints at once. Suited for small-to-medium projects |
+| full-adaptive | Detail all sprints, with autonomous plan validation and revision before each sprint during execution |
+| rolling | Detail only the first N sprints; remaining sprints have title + goal only. Suited for large/high-uncertainty projects |
 
-`rolling` 選択時の追加質問:
-- **rolling_horizon**: 「何スプリント先まで詳細化しますか？」（デフォルト: 5）
+Additional question when `rolling` is selected:
+- **rolling_horizon**: "How many sprints ahead should be detailed?" (default: 5)
 
-ユーザーの回答を config.json の `planning_strategy`, `rolling_horizon` に反映します。
+Apply the user's answers to `planning_strategy` and `rolling_horizon` in config.json.
 
-### Step 2: スプリント分割の提案
+### Step 2: Sprint Breakdown Proposal
 
-ヒアリング結果をもとに、適切な数のスプリントに分割した計画を提案します。
-目安: 小規模 3-7、中規模 8-15、大規模 16-50。プロジェクトの複雑さに応じて調整してください。
-各スプリントは以下を含みます:
+Based on the interview results, propose a plan divided into an appropriate number of sprints.
+Guidelines: small 3-7, medium 8-15, large 16-50. Adjust based on project complexity.
+Each sprint includes:
 
-- タイトルと1文のゴール
-- 主要タスク一覧
-- 依存関係（前のスプリントへの依存）
+- Title and a one-sentence goal
+- List of key tasks
+- Dependencies (on previous sprints)
 
-#### Phase グルーピング（8スプリント以上の場合）
+#### Phase Grouping (for 8+ sprints)
 
-8スプリント以上のプロジェクトでは、スプリントを論理的な Phase にグルーピングします。
-Phase は plan.md のセクション構成と state.json の `current_phase` メタデータで表現します。
-ディレクトリ構造は変更しません（`sprints/sprint-NNN/` のフラット構造を維持）。
+For projects with 8 or more sprints, group sprints into logical Phases.
+Phases are expressed through section structure in plan.md and `current_phase` metadata in state.json.
+Directory structure remains unchanged (flat `sprints/sprint-NNN/` structure).
 
-plan.md の Phase セクション例:
+plan.md Phase section example:
 ~~~
 ## Phase 1: Foundation (Sprint 1-3)
-- Sprint 1: プロジェクト初期化
-- Sprint 2: コアデータモデル
-- Sprint 3: 基本UI
+- Sprint 1: Project initialization
+- Sprint 2: Core data model
+- Sprint 3: Basic UI
 
 ## Phase 2: Core Features (Sprint 4-8)
-- Sprint 4: ユーザー認証
+- Sprint 4: User authentication
 ...
 ~~~
 
-各 spec.md の冒頭に所属 Phase を記載:
+Include the Phase at the top of each spec.md:
 ~~~
 > Phase 2: Core Features (Sprint 4-8)
 # Sprint 5: ...
 ~~~
 
-ユーザーの承認を得てから次に進みます。
+Obtain user approval before proceeding.
 
-#### ExitPlanMode の実行
+#### Executing ExitPlanMode
 
-ユーザーの承認後、以下の手順で ExitPlanMode を呼び出します:
+After user approval, call ExitPlanMode with the following steps:
 
-1. 計画ファイルの末尾に「承認後のアクション」セクションを追記する（上記「重要」セクション参照）
-2. ExitPlanMode を呼び出す
-3. 承認されたら Steps 3-6 に進む（`.sprint-loop/` 配下のファイル生成のみ。プロジェクトコードの実装ではない）
+1. Append the "Post-Approval Actions" section to the end of the plan file (see "Important" section above)
+2. Call ExitPlanMode
+3. Once approved, proceed to Steps 3-6 (only `.sprint-loop/` file generation, not project code implementation)
 
-### Step 3: 各スプリントの詳細化
+### Step 3: Sprint Detailing
 
-承認されたスプリントごとに以下のファイルを作成します。
+Create the following files for each approved sprint.
 
-**planning_strategy による分岐:**
-- `full` / `full-adaptive`: 全スプリントの spec.md, design.md, dod.md を作成
-- `rolling`: 最初の `rolling_horizon` スプリントのみ spec.md, design.md, dod.md を作成。残りのスプリントは plan.md にタイトル+ゴールのみ記載
+**Branching by planning_strategy:**
+- `full` / `full-adaptive`: Create spec.md, design.md, dod.md for all sprints
+- `rolling`: Create spec.md, design.md, dod.md only for the first `rolling_horizon` sprints. Record only title + goal for remaining sprints in plan.md
 
-#### spec.md（仕様）
+#### spec.md (specification)
 ```markdown
-# Sprint {N}: {タイトル}
+# Sprint {N}: {Title}
 
-## ゴール
-{このスプリントで達成すること（1文）}
+## Goal
+{What this sprint achieves (one sentence)}
 
-## 前提条件
-- {前スプリントへの依存等}
+## Prerequisites
+- {Dependencies on previous sprints, etc.}
 
-## ユーザーストーリー
-1. {ユーザーとして、...したい。なぜなら...}
+## User Stories
+1. {As a user, I want to... because...}
 
-## 技術タスク
-1. {具体的な実装タスク}
+## Technical Tasks
+1. {Specific implementation task}
 
-## 変更予定ファイル
-- `path/to/file` — {変更内容}
+## Files to Change
+- `path/to/file` — {Change description}
 ```
 
-#### design.md（詳細設計）
+#### design.md (detailed design)
 ```markdown
-# Sprint {N}: 詳細設計
+# Sprint {N}: Detailed Design
 
-## アーキテクチャ
-{コンポーネント構成、データフロー}
+## Architecture
+{Component structure, data flow}
 
-## インターフェース
-{関数シグネチャ、APIエンドポイント、型定義}
+## Interfaces
+{Function signatures, API endpoints, type definitions}
 
-## データモデル
-{スキーマ、構造体}
+## Data Model
+{Schemas, structures}
 
-## 実装方針
-{アルゴリズム、パターン、ライブラリ選択の理由}
+## Implementation Approach
+{Algorithms, patterns, rationale for library choices}
 ```
 
-#### design.md サイズ目安
+#### design.md Size Guidelines
 
-- 標準的なスプリント: 50-150行
-- 複雑なスプリント（新アーキテクチャ、複数サブシステム統合）: 150-300行
-- 特殊ドメイン（シェーダーコード、プロトコル定義等を含む場合）: 300-500行
-- 500行を超える場合はスプリント分割を検討すること
+- Standard sprint: 50-150 lines
+- Complex sprint (new architecture, multi-subsystem integration): 150-300 lines
+- Specialized domain (shader code, protocol definitions, etc.): 300-500 lines
+- Consider splitting the sprint if exceeding 500 lines
 
-#### Per-Sprint DoD 軸オーバーライド
+#### Per-Sprint DoD Axis Overrides
 
-特定のスプリントで不要な DoD 軸がある場合、`config.json` の `sprint_overrides` に記録します。
-例: Sprint 1（基盤構築）では `visual` 軸をスキップ、Sprint 9 でベースライン記録のみ等。
+When specific sprints do not need certain DoD axes, record them in `config.json`'s `sprint_overrides`.
+Example: Skip the `visual` axis for Sprint 1 (foundation), record baseline only for Sprint 9, etc.
 
-スプリントごとにオーバーライドが必要か検討し、必要な場合は Step 4 の `sprint_overrides` に反映してください。
+Evaluate whether overrides are needed for each sprint and reflect them in Step 4's `sprint_overrides`.
 
-#### dod.md（受け入れ基準）
+#### dod.md (acceptance criteria)
 
-`config.json` の `review_axes` に基づいて動的に構成します。
-各セクション見出しは `## {axis_id}: {表示名}` の形式にすること。
+Construct dynamically based on `review_axes` in `config.json`.
+Each section heading must follow the format `## {axis_id}: {display name}`.
 
 ```markdown
 # Sprint {N} - Definition of Done
 
-## test: テスト項目
-- [ ] {具体的なテスト要件}
+## test: Test Items
+- [ ] {Specific test requirement}
 
-## spec: 仕様準拠項目
-- [ ] {具体的な仕様要件}
+## spec: Specification Compliance
+- [ ] {Specific spec requirement}
 
-## quality: 品質項目
-- [ ] ビルドが成功すること
+## quality: Quality Items
+- [ ] Build succeeds
 
-## {custom_axis_id}: {カスタム軸名}
-- [ ] {Step 1.5 で定義した合格基準}
+## {custom_axis_id}: {Custom Axis Name}
+- [ ] {Pass criteria defined in Step 1.5}
 ```
 
-### Step 4: 設定ファイルの出力
+### Step 4: Configuration File Output
 
-> **スキーマ準拠（CRITICAL）**: 以下のテンプレートの**フィールド名・型・構造を厳密に守ること**。
-> プログラムコード（.cjs）がこれらを直接パースするため、独自の命名 (camelCase) やデータ構造（sprints をオブジェクトにする等）は使用禁止。
-> 詳細は CLAUDE.md の「Schema Conformance Rules」を参照。
+> **Schema compliance (CRITICAL)**: Follow the **field names, types, and structure** in the templates below exactly.
+> Program code (.cjs) parses these directly, so custom naming (camelCase) or data structures (making sprints an object, etc.) are prohibited.
+> See "Schema Conformance Rules" in CLAUDE.md for details.
 
 #### config.json
 ```json
 {
   "schema_version": 1,
   "project": {
-    "name": "{プロジェクト名}",
-    "tech_stack": "{技術スタック}"
+    "name": "{project name}",
+    "tech_stack": "{tech stack}"
   },
   "planning_strategy": "full",
   "rolling_horizon": null,
   "planned_through_sprint": null,
-  "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
-  "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
+  "max_total_iterations": "Value from Step 1.7 (default: 100)",
+  "max_dod_retries": "Value from Step 1.7 (default: 5)",
   "review_axes": [
     { "id": "test", "name": "Test", "builtin": true },
     { "id": "spec", "name": "Spec Compliance", "builtin": true },
@@ -334,7 +334,7 @@ plan.md の Phase セクション例:
 }
 ```
 
-カスタム軸の場合、各エントリに追加フィールドを含めます:
+For custom axes, include additional fields in each entry:
 ```json
 {
   "id": "visual",
@@ -345,11 +345,11 @@ plan.md の Phase セクション例:
   "agent_prompt_hint": "Take screenshots and compare with docs/references/"
 }
 ```
-`agent_prompt_hint` はレビューエージェント起動時にプロンプトに注入されます。
+`agent_prompt_hint` is injected into the review agent's prompt at launch.
 
-#### sprint_overrides の構成
+#### sprint_overrides Structure
 
-`sprint_overrides` はスプリント番号（文字列キー）ごとの DoD 軸オーバーライドを定義します:
+`sprint_overrides` defines per-sprint DoD axis overrides keyed by sprint number (string key):
 
 ```json
 {
@@ -360,12 +360,12 @@ plan.md の Phase セクション例:
 }
 ```
 
-- `skip_axes`: そのスプリントでスキップする軸IDの配列
-- `{axis_id}`: { ... }: 軸固有の設定オーバーライド（`pass_criteria` 等）
+- `skip_axes`: Array of axis IDs to skip for that sprint
+- `{axis_id}`: { ... }: Axis-specific setting overrides (`pass_criteria`, etc.)
 
-### Step 5: 状態の初期化
+### Step 5: State Initialization
 
-以下のファイル構造を作成します:
+Create the following file structure:
 
 ```
 {project}/.sprint-loop/
@@ -382,7 +382,7 @@ plan.md の Phase セクション例:
       ...
 ```
 
-状態ファイルの初期値:
+Initial state file values:
 ```json
 {
   "schema_version": 1,
@@ -391,18 +391,18 @@ plan.md の Phase セクション例:
   "phase": "planned",
   "current_sprint": 1,
   "total_sprints": "{N}",
-  "current_phase": "{Phase名 or null（8スプリント未満の場合はnull）}",
+  "current_phase": "{Phase name or null (null if fewer than 8 sprints)}",
   "current_subphase": null,
   "total_iterations": 0,
   "dod_retry_count": 0,
   "completed_review_axes": [],
-  "max_total_iterations": "Step 1.7 で決定した値（デフォルト: 100）",
-  "max_dod_retries": "Step 1.7 で決定した値（デフォルト: 5）",
-  "planning_strategy": "config.json から複製",
-  "planned_through_sprint": "rolling の場合: rolling_horizon の値、それ以外: null",
+  "max_total_iterations": "Value from Step 1.7 (default: 100)",
+  "max_dod_retries": "Value from Step 1.7 (default: 5)",
+  "planning_strategy": "Copied from config.json",
+  "planned_through_sprint": "For rolling: rolling_horizon value, otherwise: null",
   "sprints": [
-    { "number": 1, "title": "{タイトル}", "status": "pending" },
-    { "number": 2, "title": "{タイトル}", "status": "pending" }
+    { "number": 1, "title": "{title}", "status": "pending" },
+    { "number": 2, "title": "{title}", "status": "pending" }
   ],
   "started_at": null,
   "completed_at": null,
@@ -410,44 +410,44 @@ plan.md の Phase セクション例:
 }
 ```
 
-#### 生成後バリデーション
+#### Post-Generation Validation
 
-全ファイルの書き出し後、以下を検証してから Step 6 に進むこと:
+After writing all files, verify the following before proceeding to Step 6:
 
-- [ ] state.json: `schema_version` が `1` である
-- [ ] state.json: `phase` が `"planned"` である（`status` や `"ready"` ではない）
-- [ ] state.json: `current_sprint` が数値 `1` である（文字列 `"sprint-001"` ではない）
-- [ ] state.json: `sprints` が配列 `[{number, title, status}]` である（オブジェクトではない）
-- [ ] state.json: 全フィールド名が `snake_case` である
-- [ ] config.json: `schema_version` が `1` である
-- [ ] config.json: `max_total_iterations` と `max_dod_retries` が存在する
-- [ ] config.json: `planning_strategy` が存在する
-- [ ] config.json: `review_axes` が配列で、各要素に `id`, `name`, `builtin` がある
-- [ ] config.json: 全フィールド名が `snake_case` である
+- [ ] state.json: `schema_version` is `1`
+- [ ] state.json: `phase` is `"planned"` (not `status` or `"ready"`)
+- [ ] state.json: `current_sprint` is the number `1` (not the string `"sprint-001"`)
+- [ ] state.json: `sprints` is an array `[{number, title, status}]` (not an object)
+- [ ] state.json: All field names are `snake_case`
+- [ ] config.json: `schema_version` is `1`
+- [ ] config.json: `max_total_iterations` and `max_dod_retries` exist
+- [ ] config.json: `planning_strategy` exists
+- [ ] config.json: `review_axes` is an array where each element has `id`, `name`, `builtin`
+- [ ] config.json: All field names are `snake_case`
 
-### Step 6: 完了報告
+### Step 6: Completion Report
 
-全ファイルの作成が完了したら、サマリーを表示します:
+After all files are created, display a summary:
 
 ```
-Sprint計画が完了しました。
+Sprint planning complete.
 
-計画: {スプリント数} スプリント
-  Sprint 1: {タイトル}
-  Sprint 2: {タイトル}
+Plan: {sprint count} sprints
+  Sprint 1: {title}
+  Sprint 2: {title}
   ...
 
-`/sprint-start` で自動実行を開始できます。
-`/sprint-status` で計画内容を確認できます。
+Run `/sprint-start` to begin autonomous execution.
+Run `/sprint-status` to review the plan.
 ```
 
-## 重要ルール
+## Important Rules
 
-- 全てのファイルパスは `.sprint-loop/` 配下に配置すること
-- spec.md の技術タスクは具体的で実装可能なレベルまで詳細化すること
-- dod.md の各項目はレビューエージェントが機械的に判定可能な粒度にすること
-- design.md にはインターフェースの型定義やシグネチャを含めること
-- **spec.md は「What」（何を作るか）** — ユーザーストーリー、受け入れ条件、変更対象ファイル。関数シグネチャや型定義は含めない
-- **design.md は「How」（どう作るか）** — アーキテクチャ、関数シグネチャ、型定義、アルゴリズム選択理由。spec.md の各タスクに対する具体的な実装方針を記述する
-- ユーザーの承認なしに計画を確定しないこと
-- **state.json と config.json は CLAUDE.md の Schema Conformance Rules に厳密に従うこと** — フィールド名（snake_case 必須）、型（current_sprint は数値）、構造（sprints は配列）を独自に変更してはならない
+- Place all file paths under `.sprint-loop/`
+- Detail technical tasks in spec.md to an actionable, implementable level
+- Make each dod.md item granular enough for a review agent to judge mechanically
+- Include interface type definitions and signatures in design.md
+- **spec.md is "What" (what to build)** — user stories, acceptance conditions, files to change. Do not include function signatures or type definitions
+- **design.md is "How" (how to build it)** — architecture, function signatures, type definitions, algorithm rationale. Describe specific implementation approaches for each task in spec.md
+- Do not finalize a plan without user approval
+- **state.json and config.json must strictly follow the Schema Conformance Rules in CLAUDE.md** — do not independently change field names (snake_case required), types (current_sprint is a number), or structure (sprints is an array)

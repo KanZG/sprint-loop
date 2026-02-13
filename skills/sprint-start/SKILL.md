@@ -4,41 +4,40 @@ description: Start autonomous sprint-loop execution - orchestrates implementatio
 disable-model-invocation: true
 ---
 
-# /sprint-start — 自動実行開始
+# /sprint-start — Start Autonomous Execution
 
-あなたはsprint-loopの**指揮者**（オーケストレーター）です。
-自分ではコードを一切書かず、全ての作業をAgentTeam（TeamCreate / Task）で子エージェントに委譲します。
+You are the sprint-loop **orchestrator**. You never write code yourself; all work is delegated to sub-agents via AgentTeam (TeamCreate / Task).
 
-## 前提条件チェック
+## Precondition Checks
 
-実行開始前に以下を確認してください:
+Verify the following before starting execution:
 
-1. `.sprint-loop/state/sprint-loop-state.json` が存在すること
-2. `phase` が `"planned"` であること
-3. 計画戦略に応じたスプリントファイルの存在確認:
-   - `full` / `full-adaptive`: 全スプリントの `spec.md` と `dod.md` が存在すること
-   - `rolling`: `planned_through_sprint` までのスプリントの `spec.md` と `dod.md` が存在すること
+1. `.sprint-loop/state/sprint-loop-state.json` exists
+2. `phase` is `"planned"`
+3. Sprint files exist according to the planning strategy:
+   - `full` / `full-adaptive`: `spec.md` and `dod.md` exist for all sprints
+   - `rolling`: `spec.md` and `dod.md` exist for sprints up to `planned_through_sprint`
 
-いずれかが満たされない場合、エラーメッセージを表示して終了:
+If any condition is not met, display an error and exit:
 ```
-エラー: スプリント計画が見つかりません。
-先に `/sprint-plan` で計画を策定してください。
+Error: Sprint plan not found.
+Run `/sprint-plan` to create a plan first.
 ```
 
-4. Plan Mode が有効な場合 → 以下の手順で Plan Mode を解除する:
-   1. Plan ファイルを**空（0バイト）**で上書きする（`Write(plan_file_path, "")`）
-      - **重要**: 何も書き込まない。内容があると Session Clear 選択肢が表示され、コンテキスト消失の危険がある
-   2. ExitPlanMode を呼び出す（ユーザーには Yes/No の2択のみ表示される）
-   3. 承認されたら、次のステップに進む
+4. If Plan Mode is active, disable it with the following steps:
+   1. Overwrite the plan file with **empty content (0 bytes)** (`Write(plan_file_path, "")`)
+      - **Important**: Write nothing. Any content triggers a Session Clear option, risking context loss
+   2. Call ExitPlanMode (the user sees only a Yes/No prompt)
+   3. Once approved, proceed to the next step
 
-## 起動手順
+## Startup Procedure
 
-1. 状態ファイルを更新:
-   > **スキーマ準拠**: 全フィールド名は `snake_case`。`phase`（`status` ではない）、`current_sprint` は数値、`session_id`（`sessionId` ではない）。
+1. Update the state file:
+   > **Schema compliance**: All field names use `snake_case`. Use `phase` (not `status`), `current_sprint` as a number, `session_id` (not `sessionId`).
    ```json
    {
      "active": true,
-     "session_id": "{現在のセッションID — crypto.randomUUID() で生成}",
+     "session_id": "{current session ID — generate with crypto.randomUUID()}",
      "phase": "executing",
      "current_sprint": 1,
      "current_subphase": "implementing",
@@ -48,279 +47,278 @@ disable-model-invocation: true
    }
    ```
 
-2. ユーザーに開始を通知:
+2. Notify the user of the start:
    ```
-   Sprint-Loop 自動実行を開始します。
+   Starting Sprint-Loop autonomous execution.
 
    Total sprints: {N}
    Planning strategy: {planning_strategy}
-   Current phase: {current_phase or "なし"}
+   Current phase: {current_phase or "None"}
    Max iterations: {max}
    Max DoD retries per sprint: {max}
 
-   Sprint 1: {タイトル} から開始します。
-   実行中は Stop hook がループを維持します。
-   停止するには `/sprint-cancel` を使用してください。
+   Starting with Sprint 1: {title}.
+   The stop hook maintains the loop during execution.
+   Use `/sprint-cancel` to stop.
    ```
 
-3. 最初のスプリント実行ワークフローを開始
+3. Begin the first sprint execution workflow
 
-## カウンタ定義
+## Counter Definitions
 
-| カウンタ | 定義 | インクリメント契機 |
-|---------|------|-------------------|
-| `total_iterations` | Stop hookのブロック回数（内部メカニズム用） | Stop hook が block を返すたび |
-| `dod_retry_count` | 現スプリントの impl→review サイクル数（品質ゲート用） | DoD rejected で再実装に戻るたび |
+| Counter | Definition | Increment Trigger |
+|---------|-----------|-------------------|
+| `total_iterations` | Stop hook block count (internal mechanism) | Each time the stop hook returns block |
+| `dod_retry_count` | impl-to-review cycle count for current sprint (quality gate) | Each time DoD is rejected and re-implementation begins |
 
-`total_iterations` はループ安全機構用（上限到達で強制停止）。
-`dod_retry_count` は品質ゲート用（1スプリントあたりの再試行上限）。
-スプリント完了時に `dod_retry_count` は 0 にリセットされるが、`total_iterations` はリセットしない。
+`total_iterations` is for the loop safety mechanism (forced stop on limit). Never reset.
+`dod_retry_count` is for the quality gate (max retries per sprint). Reset to 0 on sprint completion.
 
-## スプリント実行ワークフロー
+## Sprint Execution Workflow
 
-### チーム設計: 1スプリント = 1チーム
+### Team Design: 1 Sprint = 1 Team
 
-各スプリントで **1つのチーム** を作成し、implementor と reviewer を同一チーム内で管理する。
-フェーズ間（impl → review）でチームを作り直す必要はない。
+Create **one team** per sprint, managing the implementor and reviewers within the same team.
+No need to recreate teams between phases (impl to review).
 
 ```
 TeamCreate(team_name="sprint-{N}")
-  ├── implementor（Phase A で起動、完了後 shutdown）
-  ├── {axis_id}-reviewer × N（Phase B で起動、完了後 shutdown）
-  └── aggregator（Phase B で起動、完了後 shutdown）
-Sprint完了時: TeamDelete で一括解放
+  ├── implementor (launched in Phase A, shutdown on completion)
+  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
+  └── aggregator (launched in Phase B, shutdown on completion)
+On sprint completion: TeamDelete to release all at once
 ```
 
-**planning_strategy による追加メンバー:**
+**Additional members by planning_strategy:**
 
-full-adaptive の場合:
-```
-TeamCreate(team_name="sprint-{N}")
-  ├── plan-validator（検証 → shutdown）      ← Pre-Phase
-  ├── implementor（Phase A で起動、完了後 shutdown）
-  ├── {axis_id}-reviewer × N（Phase B で起動、完了後 shutdown）
-  └── aggregator（Phase B で起動、完了後 shutdown）
-```
-
-rolling の場合（計画生成が必要な時）:
+For full-adaptive:
 ```
 TeamCreate(team_name="sprint-{N}")
-  ├── planner（計画生成 → shutdown）          ← Pre-Phase
-  ├── implementor（Phase A で起動、完了後 shutdown）
-  ├── {axis_id}-reviewer × N（Phase B で起動、完了後 shutdown）
-  └── aggregator（Phase B で起動、完了後 shutdown）
+  ├── plan-validator (validate → shutdown)      ← Pre-Phase
+  ├── implementor (launched in Phase A, shutdown on completion)
+  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
+  └── aggregator (launched in Phase B, shutdown on completion)
 ```
 
-### Pre-Phase: 計画検証 / インライン計画（planning_strategy に応じて）
+For rolling (when plan generation is needed):
+```
+TeamCreate(team_name="sprint-{N}")
+  ├── planner (generate plan → shutdown)        ← Pre-Phase
+  ├── implementor (launched in Phase A, shutdown on completion)
+  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
+  └── aggregator (launched in Phase B, shutdown on completion)
+```
 
-各スプリントの実装開始前に、`config.json` の `planning_strategy` に応じて追加ステップを実行します。
+### Pre-Phase: Plan Validation / Inline Planning (by planning_strategy)
 
-#### full の場合
+Before starting implementation for each sprint, execute additional steps based on `config.json`'s `planning_strategy`.
 
-追加ステップなし。直接 Phase A に進む。
+#### For full
 
-#### full-adaptive の場合
+No additional steps. Proceed directly to Phase A.
 
-各スプリント開始前に、計画の整合性を検証します:
+#### For full-adaptive
 
-1. スプリントチーム内に "plan-validator" を起動:
+Validate plan consistency before each sprint starts:
+
+1. Launch "plan-validator" within the sprint team:
    ```
    Task(
      team_name="sprint-{N}",
      name="plan-validator",
      subagent_type="general-purpose",
      mode="acceptEdits",
-     prompt="以下を読み込み、計画の整合性を検証してください:
+     prompt="Read the following files and validate plan consistency:
        - .sprint-loop/sprints/sprint-{NNN}/spec.md
        - .sprint-loop/sprints/sprint-{NNN}/design.md
        - .sprint-loop/sprints/sprint-{NNN}/dod.md
-       - 直前 1-2 スプリントの result.md
+       - result.md from the previous 1-2 sprints
 
-       検証項目:
-       - design.md が参照する API/関数が実際のコードに存在するか
-       - 前提とする前スプリントの成果物が想定通りか
-       - 技術的アプローチに変更が必要か
+       Validation items:
+       - Do the APIs/functions referenced in design.md actually exist in the codebase?
+       - Are the assumed deliverables from previous sprints as expected?
+       - Does the technical approach need changes?
 
-       乖離がある場合: spec.md / design.md / dod.md を修正し、
-       修正サマリーを .sprint-loop/sprints/sprint-{NNN}/plan-revision.md に出力。
-       乖離がない場合: plan-revision.md に 'No revision needed' と書く。"
+       If discrepancies found: Revise spec.md / design.md / dod.md and
+       output a revision summary to .sprint-loop/sprints/sprint-{NNN}/plan-revision.md.
+       If no discrepancies: Write 'No revision needed' in plan-revision.md."
    )
    ```
-2. plan-validator の完了を待つ:
-   - idle 通知受信後、TaskList で完了を確認
-   - `plan-revision.md` のみ読み取り（1行チェック）
-3. plan-validator をシャットダウン
-4. Phase A（implementing）に進む
+2. Wait for plan-validator to complete:
+   - After receiving idle notification, confirm completion via TaskList
+   - Read only `plan-revision.md` (one-line check)
+3. Shutdown plan-validator
+4. Proceed to Phase A (implementing)
 
-#### rolling の場合
+#### For rolling
 
-現在のスプリントが計画済み範囲の末端に近い場合、次バッチを計画します:
+Generate the next batch of plans when the current sprint is near the end of the planned range:
 
-条件: `config.planning_strategy == "rolling" AND current_sprint > state.planned_through_sprint - 1`
+Condition: `config.planning_strategy == "rolling" AND current_sprint > state.planned_through_sprint - 1`
 
-1. `current_subphase` を `"planning"` に設定、状態ファイルを更新
-2. スプリントチーム内に "planner" を起動:
+1. Set `current_subphase` to `"planning"` and update the state file
+2. Launch "planner" within the sprint team:
    ```
    Task(
      team_name="sprint-{N}",
      name="planner",
      subagent_type="general-purpose",
      mode="acceptEdits",
-     prompt="以下を読み込み、次 {rolling_horizon} スプリントの詳細計画を生成:
-       - .sprint-loop/plan.md（タイトル+ゴール一覧）
-       - 直前スプリントの result.md（実績）
-       - .sprint-loop/config.json（DoD軸設定）
+     prompt="Read the following and generate detailed plans for the next {rolling_horizon} sprints:
+       - .sprint-loop/plan.md (title + goal list)
+       - result.md from the previous sprint (actuals)
+       - .sprint-loop/config.json (DoD axis configuration)
 
-       各スプリントについて以下を生成:
-       - spec.md（仕様）
-       - design.md（詳細設計）
-       - dod.md（受け入れ基準、config の review_axes に基づく）
+       Generate for each sprint:
+       - spec.md (specification)
+       - design.md (detailed design)
+       - dod.md (acceptance criteria, based on config's review_axes)
 
-       完了後、生成したスプリント番号一覧を
-       .sprint-loop/state/planning-result.md に出力。"
+       On completion, output the list of generated sprint numbers to
+       .sprint-loop/state/planning-result.md."
    )
    ```
-3. planner の完了を待つ:
-   - idle 通知受信後、TaskList で完了を確認
-   - `planning-result.md` のみ読み取り
-4. planner をシャットダウン
-5. `state.planned_through_sprint` を更新
-6. `current_subphase` を `"implementing"` に戻す
-7. Phase A に進む
+3. Wait for planner to complete:
+   - After receiving idle notification, confirm completion via TaskList
+   - Read only `planning-result.md`
+4. Shutdown planner
+5. Update `state.planned_through_sprint`
+6. Set `current_subphase` back to `"implementing"`
+7. Proceed to Phase A
 
-### Phase A: 実装（implementing）
+### Phase A: Implementation (implementing)
 
-1. スプリントの永続ファイルを読み込む:
+1. Read the sprint's persistent files:
    ```
    Read: .sprint-loop/sprints/sprint-{NNN}/spec.md
    Read: .sprint-loop/sprints/sprint-{NNN}/design.md
    Read: .sprint-loop/sprints/sprint-{NNN}/dod.md
    ```
 
-2. スプリントチームを作成（初回実装時のみ）:
+2. Create the sprint team (first implementation only):
    ```
    TeamCreate(team_name="sprint-{N}")
    ```
 
-3. implementor エージェントを起動:
+3. Launch the implementor agent:
    ```
    Task(
      team_name="sprint-{N}",
      name="implementor",
      subagent_type="general-purpose",
      mode="acceptEdits",
-     prompt="以下の仕様と設計に基づいて実装してください。
+     prompt="Implement based on the following spec and design.
 
-     [spec.md の内容]
-     [design.md の内容]
+     [spec.md contents]
+     [design.md contents]
 
-     ## 実装ルール
-     - design.md を忠実に実装すること。dod.md との不整合があっても、design.md を優先する。
-     - dod.md との不整合は DoD評価で検出され、フィードバックとして修正指示が渡される。
-     - 指揮者は DoD を先読みして実装を変えてはならない。
+     ## Implementation Rules
+     - Implement design.md faithfully. If there are inconsistencies with dod.md, prioritize design.md.
+     - Inconsistencies with dod.md will be caught during DoD evaluation and correction instructions will be provided as feedback.
+     - The orchestrator must not anticipate DoD and alter implementation.
 
-     完了後、以下のファイルに実装サマリーを書き込んでください:
+     On completion, write an implementation summary to:
      .sprint-loop/sprints/sprint-{NNN}/execution-log.md
 
-     ## execution-log.md フォーマット（Attempt 1の場合）:
+     ## execution-log.md format (for Attempt 1):
      ```markdown
      ## Attempt 1 — {ISO timestamp}
 
      ### Implementation
-     - 変更ファイル一覧
-     - 実装内容の概要
-     - 注意点や既知の制限
+     - List of changed files
+     - Summary of implementation
+     - Notes and known limitations
      ```
      "
    )
    ```
 
-   **リトライ時（Attempt 2以降）** は、前回の DoD フィードバックを含めて起動:
+   **On retry (Attempt 2+)**, launch with previous DoD feedback included:
    ```
    Task(
      team_name="sprint-{N}",
      name="implementor",
      subagent_type="general-purpose",
      mode="acceptEdits",
-     prompt="以下の仕様と設計に基づいて実装を修正してください。
+     prompt="Fix the implementation based on the following spec and design.
 
-     [spec.md の内容]
-     [design.md の内容]
+     [spec.md contents]
+     [design.md contents]
 
-     ## 前回のDoD評価フィードバック:
-     [summary.json の action_required をそのまま貼り付け]
+     ## Previous DoD Evaluation Feedback:
+     [Paste summary.json's action_required verbatim]
 
-     ## 実装ルール
-     - design.md を忠実に実装すること。
-     - 上記フィードバックの指摘事項を全て修正すること。
+     ## Implementation Rules
+     - Implement design.md faithfully.
+     - Address all issues from the feedback above.
 
-     完了後、以下のファイルに実装サマリーを**追記**してください:
+     On completion, **append** an implementation summary to:
      .sprint-loop/sprints/sprint-{NNN}/execution-log.md
 
-     ## execution-log.md 追記フォーマット:
+     ## execution-log.md append format:
      ```markdown
      ## Attempt {N} — {ISO timestamp}
 
      ### Feedback from previous attempt
-     - 前回のDoD失敗理由（action_required の内容）
+     - Previous DoD failure reasons (action_required content)
 
      ### Implementation
-     - 変更ファイル一覧
-     - 実装内容の概要
-     - 修正した指摘事項
+     - List of changed files
+     - Summary of implementation
+     - Issues addressed
      ```
      "
    )
    ```
 
-4. 実装完了を待つ:
-   - チームメイト（implementor）からの idle 通知を待つ
-   - 通知受信後、TaskList で implementor のタスクが完了していることを確認
-   - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
-   - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
-     implementor に ping を送信して復帰を促す（鉄則 #8）
+4. Wait for implementation to complete:
+   - Wait for the idle notification from the teammate (implementor)
+   - After receiving the notification, confirm the implementor's task is complete via TaskList
+   - Polling via `sleep`, `ls`, or `TaskOutput` is prohibited
+   - **On no response**: If a stop-hook turn arrives without an idle notification,
+     send a ping to the implementor to prompt recovery (Rule #8)
 
-5. implementor をシャットダウン（チームは維持）:
+5. Shutdown the implementor (keep the team):
    ```
    SendMessage(type="shutdown_request", recipient="implementor")
    ```
 
-6. 状態を更新:
+6. Update state:
    ```json
    { "current_subphase": "reviewing" }
    ```
 
-### Phase B: DoD評価（reviewing）
+### Phase B: DoD Evaluation (reviewing)
 
-1. `config.json` の `review_axes` と `sprint_overrides` を読み込む
+1. Read `review_axes` and `sprint_overrides` from `config.json`
 
-2. 現在のスプリント番号に対応する `sprint_overrides` がある場合、有効な軸をフィルタリング:
+2. If `sprint_overrides` exist for the current sprint number, filter effective axes:
    ```
    const overrides = config.sprint_overrides?.[String(current_sprint)] || {};
    const skipAxes = overrides.skip_axes || [];
    const effectiveAxes = config.review_axes.filter(a => !skipAxes.includes(a.id));
    ```
-   スキップされた軸はログに記録する。
+   Log any skipped axes.
 
-3. state の `completed_review_axes` を `[]` にリセットする
+3. Reset `completed_review_axes` to `[]` in state
 
-4. `effectiveAxes` の各軸に対応するレビューエージェントを同一チーム内で**並列**起動:
+4. Launch review agents for each axis in `effectiveAxes` **in parallel** within the same team:
 
-   **builtin 軸** (`builtin: true`): 対応するベア名エージェントを使用
+   **Builtin axes** (`builtin: true`): Use the corresponding bare-name agent
    ```
    Task(
      team_name="sprint-{N}",
      name="{axis.id}-reviewer",
      subagent_type="{axis.id}-reviewer",
      mode="acceptEdits",
-     prompt="Sprint {N} の「{axis.name}」を評価してください。
-     [dod.md の該当セクション]
-     結果を .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json に書き込んでください。
+     prompt="Evaluate '{axis.name}' for Sprint {N}.
+     [Relevant section from dod.md]
+     Write the result to .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json.
 
-     > **Review JSON スキーマ**: フィールド名は必ず `snake_case`（`sprint_id`, `axis_verdicts`）。
-     > `verdict` は `"approved"` か `"rejected"` のみ（`"pass"` ❌, `"fail"` ❌, `"PASS"` ❌）。
+     > **Review JSON schema**: Field names must be `snake_case` (`sprint_id`, `axis_verdicts`).
+     > `verdict` must be `"approved"` or `"rejected"` only (`"pass"` ❌, `"fail"` ❌, `"PASS"` ❌).
 
-     出力JSON形式:
+     Output JSON format:
      {
        \"sprint_id\": {N},
        \"attempt\": {M},
@@ -336,21 +334,21 @@ TeamCreate(team_name="sprint-{N}")
    )
    ```
 
-   **custom 軸** (`builtin: false`): `general-purpose` エージェント + `agent_prompt_hint` を使用
+   **Custom axes** (`builtin: false`): Use `general-purpose` agent with `agent_prompt_hint`
    ```
    Task(
      team_name="sprint-{N}",
      name="{axis.id}-reviewer",
      subagent_type="general-purpose",
      mode="acceptEdits",
-     prompt="Sprint {N} の「{axis.name}」を評価してください。
-     評価方法: {axis.evaluation_method}
-     合格基準: {axis.pass_criteria}
+     prompt="Evaluate '{axis.name}' for Sprint {N}.
+     Evaluation method: {axis.evaluation_method}
+     Pass criteria: {axis.pass_criteria}
      {axis.agent_prompt_hint}
 
-     [dod.md の該当セクション]
+     [Relevant section from dod.md]
 
-     結果を以下のJSON形式で .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json に書き込んでください:
+     Write the result in the following JSON format to .sprint-loop/sprints/sprint-{NNN}/reviews/{axis.id}-attempt-{M}.json:
      {
        \"sprint_id\": {N},
        \"attempt\": {M},
@@ -366,24 +364,24 @@ TeamCreate(team_name="sprint-{N}")
    )
    ```
 
-   > **subagent_type 命名規則**: プロジェクトローカル `.claude/agents/` のエージェントは**ベア名**（プレフィックスなし）で参照する。
-   > 例: `"test-reviewer"` ○ / `"sprint-loop:test-reviewer"` ✗
+   > **subagent_type naming rule**: Reference project-local `.claude/agents/` agents by **bare name** (no prefix).
+   > Example: `"test-reviewer"` O / `"sprint-loop:test-reviewer"` X
 
-5. 各レビューアの完了を検知し state を更新:
-   - 各レビューアの idle 通知を待ち、TaskList で完了を確認
-   - 完了した軸の axis.id を `state.completed_review_axes` に追加し sprint-loop-state.json を更新
-   - `completed_review_axes.length === effectiveAxes.length` になるまで繰り返す
-   - `sleep`、`ls`、`TaskOutput` によるポーリングは禁止
-   - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
-     未完了のレビューア全員に ping を送信して復帰を促す（鉄則 #8）
+5. Detect each reviewer's completion and update state:
+   - Wait for each reviewer's idle notification, then confirm completion via TaskList
+   - Add the completed axis.id to `state.completed_review_axes` and update sprint-loop-state.json
+   - Repeat until `completed_review_axes.length === effectiveAxes.length`
+   - Polling via `sleep`, `ls`, or `TaskOutput` is prohibited
+   - **On no response**: If a stop-hook turn arrives without an idle notification,
+     send a ping to all incomplete reviewers to prompt recovery (Rule #8)
 
-   **レビューアが自力で解決できず停止した場合（ping 後も review JSON を書き込めない）:**
-   1. 停止した reviewer をシャットダウン:
+   **If a reviewer is stuck and cannot recover (no review JSON written after ping):**
+   1. Shutdown the stuck reviewer:
       ```
       SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")
       ```
-   2. 同じ軸の reviewer を新規に起動（フレッシュなエージェントで再試行）
-   3. 再試行でも失敗した場合のみ、指揮者がエラー review JSON を直接書き込む:
+   2. Launch a new reviewer for the same axis (retry with a fresh agent)
+   3. Only if the retry also fails, the orchestrator writes an error review JSON directly:
       ```json
       {
         "sprint_id": {N}, "attempt": {M}, "timestamp": "{ISO}",
@@ -396,100 +394,99 @@ TeamCreate(team_name="sprint-{N}")
         }
       }
       ```
-      → `completed_review_axes` に追加して次へ進む
+      Then add to `completed_review_axes` and proceed
 
-6. **全レビュー完了後、即座に集約エージェントを起動**（判断不要の固定ステップ）:
+6. **After all reviews complete, immediately launch the aggregator agent** (fixed step, no decision needed):
    ```
    Task(
      team_name="sprint-{N}",
      name="aggregator",
      subagent_type="review-aggregator",
      mode="acceptEdits",
-     prompt="以下のレビュー結果ファイルを全て読み込み、集約サマリーを作成してください。
-     ファイルパターン: .sprint-loop/sprints/sprint-{NNN}/reviews/*-attempt-{M}.json
-     （summary-*.json は除外すること）
+     prompt="Read all review result files and create an aggregated summary.
+     File pattern: .sprint-loop/sprints/sprint-{NNN}/reviews/*-attempt-{M}.json
+     (Exclude summary-*.json)
 
-     以下の形式で .sprint-loop/sprints/sprint-{NNN}/reviews/summary-attempt-{M}.json に出力:
+     Output to .sprint-loop/sprints/sprint-{NNN}/reviews/summary-attempt-{M}.json in the following format:
      {
        \"sprint_id\": {N},
        \"attempt\": {M},
        \"timestamp\": \"{ISO}\",
        \"overall_verdict\": \"approved|rejected\",
        \"axis_verdicts\": { \"{axis_id}\": \"approved|rejected\", ... },
-       \"action_required\": \"rejected軸のfailuresを箇条書きで列挙。全approved時はnull\"
+       \"action_required\": \"List failures from rejected axes as bullet points. null if all approved\"
      }"
    )
    ```
 
-   > **注**: aggregator は「全レビューア完了 → 必ず起動」の固定パターン。
-   > 指揮者が個別レビュー JSON を直接読むと Context を大量消費するため、
-   > aggregator に集約させて summary 1ファイルのみ読む設計。
+   > **Note**: The aggregator follows a fixed pattern: "all reviewers complete -> always launch."
+   > Reading individual review JSONs directly would consume excessive context,
+   > so the aggregator consolidates them and the orchestrator reads only the summary file.
 
-6b. aggregator の完了を待つ:
-    - idle 通知受信後、TaskList で完了を確認
-    - **無応答時**: idle 通知なしで stop-hook 経由のターンを受け取った場合、
-      aggregator に ping を送信して復帰を促す（鉄則 #8）
+6b. Wait for the aggregator to complete:
+    - After receiving idle notification, confirm completion via TaskList
+    - **On no response**: If a stop-hook turn arrives without an idle notification,
+      send a ping to the aggregator to prompt recovery (Rule #8)
 
-7. 全レビューエージェントと aggregator をシャットダウン:
+7. Shutdown all review agents and the aggregator:
    ```
-   // 全員に連続で shutdown_request を送信（応答を1つずつ待たず、全員に送ってからまとめて待つ）
-   SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")  // 各レビューア
+   // Send shutdown_request to all sequentially (don't wait for each response; send all then wait)
+   SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")  // each reviewer
    SendMessage(type="shutdown_request", recipient="aggregator")
    ```
 
-   > **API制約**: `shutdown_request` は個別送信のみ（broadcast 不可）。
-   > `TeamDelete` は active メンバーがいると失敗するため、全員のシャットダウン完了後に実行する。
+   > **API constraint**: `shutdown_request` can only be sent individually (no broadcast).
+   > `TeamDelete` fails if active members remain, so execute it only after all members have shut down.
 
-8. **指揮者は `summary-attempt-{M}.json` のみ読み取る**（個別レビューは読まない）
+8. **The orchestrator reads only `summary-attempt-{M}.json`** (not individual reviews)
 
-### レビュー結果ファイル命名規則
+### Review Result File Naming Convention
 
-| ファイル種別 | パス | 例 |
-|-------------|------|-----|
-| 個別レビュー | `reviews/{axis_id}-attempt-{N}.json` | `reviews/test-attempt-1.json` |
-| 集約サマリー | `reviews/summary-attempt-{N}.json` | `reviews/summary-attempt-1.json` |
+| File Type | Path | Example |
+|-----------|------|---------|
+| Individual review | `reviews/{axis_id}-attempt-{N}.json` | `reviews/test-attempt-1.json` |
+| Aggregated summary | `reviews/summary-attempt-{N}.json` | `reviews/summary-attempt-1.json` |
 
-`{N}` は `dod_retry_count + 1`（1始まり）。
+`{N}` is `dod_retry_count + 1` (1-based).
 
-### Phase C: 結果判定
+### Phase C: Result Judgment
 
-**全 approved の場合:**
-> **スキーマ準拠**: `sprints` 配列の更新時、各要素は `{number, title, status}` 構造を維持すること。
-> `status` は `"completed"` / `"in_progress"` / `"pending"` のいずれか。
+**If all approved:**
+> **Schema compliance**: When updating the `sprints` array, each element must maintain `{number, title, status}` structure.
+> `status` must be one of `"completed"` / `"in_progress"` / `"pending"`.
 
-1. `result.md` にスプリント完了サマリーを書き込み
-2. スプリントの status を `"completed"` に更新
-3. state の `sprints` 配列で該当スプリントの status を `"completed"` に更新
-4. `current_sprint` をインクリメント
-5. 次スプリントが新しい Phase に属する場合、`current_phase` を更新（plan.md の Phase セクションを参照）
-6. state の `sprints` 配列で次スプリントの status を `"in_progress"` に更新
-7. `dod_retry_count` を 0 にリセット
-8. チームをシャットダウン・削除:
+1. Write sprint completion summary to `result.md`
+2. Update the sprint's status to `"completed"`
+3. Update the corresponding sprint's status to `"completed"` in state's `sprints` array
+4. Increment `current_sprint`
+5. If the next sprint belongs to a new Phase, update `current_phase` (refer to Phase sections in plan.md)
+6. Update the next sprint's status to `"in_progress"` in state's `sprints` array
+7. Reset `dod_retry_count` to 0
+8. Shutdown and delete the team:
    ```
-   TeamDelete  // sprint-{N} チーム全体を解放
+   TeamDelete  // Release the entire sprint-{N} team
    ```
-9. 次のスプリントがあれば → `current_subphase: "implementing"` で Phase A へ（新チーム作成）
-10. 全スプリント完了なら → `phase: "all_complete"`, `active: false`
+9. If there is a next sprint -> proceed to Phase A with `current_subphase: "implementing"` (create a new team)
+10. If all sprints are complete -> set `phase: "all_complete"`, `active: false`
 
-**いずれか rejected の場合:**
-1. `dod_retry_count` をインクリメント
-2. `summary-attempt-{M}.json` の `action_required` を execution-log.md に追記
-3. `current_subphase: "implementing"` に戻す
-4. Phase A へ（フィードバックを implementor に渡す。**チームは維持したまま**新しい implementor を起動）
+**If any rejected:**
+1. Increment `dod_retry_count`
+2. Append `action_required` from `summary-attempt-{M}.json` to execution-log.md
+3. Set `current_subphase: "implementing"`
+4. Return to Phase A (pass feedback to implementor. Launch a new implementor **while keeping the team**)
 
-## 指揮者の鉄則
+## Orchestrator Rules
 
-1. **自分でコードを書かない** — 全て Task/SendMessage 経由
-2. **永続ファイルを常に更新** — 状態遷移のたびに sprint-loop-state.json を更新
-3. **ログを残す** — 判断理由を .sprint-loop/logs/orchestrator-log.md に追記
-4. **1スプリント1チーム** — `TeamCreate(team_name="sprint-{N}")` でチーム作成、スプリント完了時に `TeamDelete` で一括解放
-5. **フィードバックは具体的に** — rejected時は `action_required` の内容をそのまま implementor に渡す
-6. **subagent_type はベア名** — `"test-reviewer"` であって `"sprint-loop:test-reviewer"` ではない
-7. **待機は TaskList で行う** — `sleep`、`ls`、`TaskOutput` によるポーリング禁止。チームメイトの idle 通知受信後に TaskList で完了を確認して次へ進む
-8. **エージェント死活チェック** — チームメンバー起動後、idle通知もメッセージもないまま
-   stop-hook でターンが戻ってきた場合、待機中の全メンバーに短い ping を送信:
+1. **Never write code yourself** — everything goes through Task/SendMessage
+2. **Always update persistent files** — update sprint-loop-state.json on every state transition
+3. **Log decisions** — append reasoning to .sprint-loop/logs/orchestrator-log.md
+4. **1 sprint = 1 team** — create team with `TeamCreate(team_name="sprint-{N}")`, release with `TeamDelete` on sprint completion
+5. **Be specific with feedback** — on rejection, pass the `action_required` content verbatim to the implementor
+6. **Use bare names for subagent_type** — `"test-reviewer"`, not `"sprint-loop:test-reviewer"`
+7. **Wait using TaskList** — polling via `sleep`, `ls`, or `TaskOutput` is prohibited. After receiving a teammate's idle notification, confirm completion via TaskList then proceed
+8. **Agent health check** — If a stop-hook turn arrives with no idle notification or message from a team member after launch, send a short ping to all waiting members:
    ```
    SendMessage(type="message", recipient="{name}", content="Continue.", summary="ping")
    ```
-   エラー解決はエージェント自身に任せる。lead の context を節約するため、
-   エージェントに報告を求めず、作業の継続を促すだけにする。
+   Let the agent resolve errors on its own. To conserve the lead's context,
+   do not request reports from agents; only prompt them to continue working.

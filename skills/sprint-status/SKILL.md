@@ -4,36 +4,36 @@ description: Show current sprint-loop execution status and progress
 disable-model-invocation: true
 ---
 
-# /sprint-status — 進捗確認
+# /sprint-status — Progress Check
 
-永続ファイルから現在の状態を読み取り、進捗を表示します。
+Read the current state from persistent files and display progress.
 
-## 手順
+## Procedure
 
-1. `.sprint-loop/state/sprint-loop-state.json` を読み込む
-2. 状態ファイルが存在しない場合:
+1. Read `.sprint-loop/state/sprint-loop-state.json`
+2. If the state file does not exist:
    ```
-   Sprint-Loop: 計画がありません。
-   `/sprint-plan` で計画を策定してください。
+   Sprint-Loop: No plan found.
+   Create a plan with `/sprint-plan`.
    ```
 
-3. 状態に応じて以下を表示:
+3. Display based on current state:
 
-### planned 状態
+### planned state
 ```
-Sprint-Loop Status: 計画済み（未実行）
+Sprint-Loop Status: Planned (Not Yet Executed)
 
-スプリント数: {total_sprints}
-{各スプリントのタイトル一覧}
+Sprint count: {total_sprints}
+{list of sprint titles}
 
-`/sprint-start` で実行を開始できます。
+Run `/sprint-start` to begin execution.
 ```
 
-### executing 状態
+### executing state
 ```
-Sprint-Loop Status: 実行中
+Sprint-Loop Status: Executing
 
-Current Sprint: {current_sprint}/{total_sprints} — {タイトル}
+Current Sprint: {current_sprint}/{total_sprints} — {title}
 Sub-phase: {current_subphase}
 Iteration: {total_iterations}/{max_total_iterations}
 DoD Retries: {dod_retry_count}/{max_dod_retries}
@@ -41,12 +41,12 @@ Started: {started_at}
 Last Activity: {last_checked_at}
 
 Sprint Progress:
-  [x] Sprint 1: {タイトル} — completed
-  [>] Sprint 2: {タイトル} — in_progress ({current_subphase})
-  [ ] Sprint 3: {タイトル} — pending
+  [x] Sprint 1: {title} — completed
+  [>] Sprint 2: {title} — in_progress ({current_subphase})
+  [ ] Sprint 3: {title} — pending
 ```
 
-最新のレビュー結果がある場合はそれも表示:
+If latest review results exist, also display:
 ```
 Latest Review (attempt {N}):
   Test:    {verdict} — {details}
@@ -54,65 +54,65 @@ Latest Review (attempt {N}):
   Quality: {verdict} — {details}
 ```
 
-### all_complete 状態
+### all_complete state
 ```
-Sprint-Loop Status: 全スプリント完了
+Sprint-Loop Status: All Sprints Complete
 
 Total Sprints: {total_sprints}
 Total Iterations: {total_iterations}
 Duration: {started_at} — {completed_at}
 ```
 
-### failed 状態
+### failed state
 ```
-Sprint-Loop Status: 失敗
+Sprint-Loop Status: Failed
 
 Reason: {failure_reason}
 Failed at Sprint: {current_sprint}/{total_sprints}
 Total Iterations: {total_iterations}
 
-`/sprint-resume` で最新状態から再開できます。
+Run `/sprint-resume` to resume from the latest state.
 ```
 
-### fixing 状態
+### fixing state
 ```
-Sprint-Loop Status: Fix モード（一時停止中）
+Sprint-Loop Status: Fix Mode (Paused)
 
-Current Sprint: {current_sprint}/{total_sprints} — {タイトル}
-修正前の Sub-phase: {previous_subphase}
+Current Sprint: {current_sprint}/{total_sprints} — {title}
+Sub-phase before fix: {previous_subphase}
 DoD Retries: {dod_retry_count}
 
-修正作業中です。修正完了後に自動的に実行が再開されます。
-修正が中断された場合は `/sprint-resume` で再開できます。
+Fix in progress. Execution resumes automatically after the fix completes.
+If the fix was interrupted, resume with `/sprint-resume`.
 ```
 
-### replanning 状態
+### replanning state
 ```
-Sprint-Loop Status: Replan モード（再計画中）
+Sprint-Loop Status: Replan Mode (Replanning)
 
 Current Sprint: {current_sprint}/{total_sprints}
 Total Iterations: {total_iterations}
 
-再計画作業中です。`/sprint-replan` で再計画を完了してください。
+Replanning in progress. Complete with `/sprint-replan`.
 ```
 
-### replanned 状態
+### replanned state
 ```
-Sprint-Loop Status: 再計画完了（未再開）
+Sprint-Loop Status: Replanned (Not Yet Resumed)
 
 Total Sprints: {total_sprints}
-Resume Mode: DoD-first（各スプリントは DoD 評価から開始）
+Resume Mode: DoD-first (each sprint starts from DoD evaluation)
 
 Sprint Progress:
-  [ ] Sprint 1: {タイトル} — pending
-  [ ] Sprint 2: {タイトル} — pending
+  [ ] Sprint 1: {title} — pending
+  [ ] Sprint 2: {title} — pending
   ...
 
-`/sprint-resume` で再実行を開始してください。
-DoD-first モードにより、変更のないスプリントは DoD 評価のみで高速通過します。
+Run `/sprint-resume` to begin re-execution.
+DoD-first mode will fast-track unchanged sprints with DoD evaluation only.
 ```
 
-## 追加情報
+## Additional Information
 
-- `.sprint-loop/plan.md` の内容も簡潔に要約して表示
-- 現在のスプリントの `execution-log.md` があればその要約も表示
+- Also display a concise summary of `.sprint-loop/plan.md` content
+- If the current sprint has an `execution-log.md`, display its summary as well

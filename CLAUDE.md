@@ -4,98 +4,98 @@ Sprint-based autonomous development loop for Claude Code.
 
 ## Overview
 
-Sprint-Loop は大規模な開発タスクをスプリント単位で自動実行するプラグインです。
-計画 → 実装 → DoD評価 → 次スプリントへの自動遷移を繰り返し、全スプリント完了まで自動ループします。
+Sprint-Loop is a plugin that automatically executes large-scale development tasks in sprint units.
+It loops through Plan -> Implement -> DoD Evaluation -> Auto-transition to next sprint, repeating until all sprints are complete.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/sprint-plan` | 対話的にスプリント計画を策定 |
-| `/sprint-start` | 自動実行を開始 |
-| `/sprint-status` | 進捗を確認 |
-| `/sprint-cancel` | 実行を停止 |
-| `/sprint-fix` | 現スプリントの小規模修正（自動再開） |
-| `/sprint-replan` | 大規模な仕様変更・再計画 |
-| `/sprint-resume` | 状況に応じた最適な再開 |
+| `/sprint-plan` | Interactively create a sprint plan |
+| `/sprint-start` | Start automatic execution |
+| `/sprint-status` | Check progress |
+| `/sprint-cancel` | Stop execution |
+| `/sprint-fix` | Small fixes to current sprint (auto-resume) |
+| `/sprint-replan` | Major specification changes and replanning |
+| `/sprint-resume` | Context-aware optimal resume |
 
 ## Architecture
 
-### Orchestrator Pattern（指揮者パターン）
+### Orchestrator Pattern
 
-メインセッションは**指揮者**として動作し、自分ではコードを書きません。
-全ての実装・テスト・レビューはAgentTeam（`TeamCreate` / `Task`）で子エージェントに委譲します。
+The main session acts as the **orchestrator** and never writes code directly.
+All implementation, testing, and review are delegated to child agents via AgentTeam (`TeamCreate` / `Task`).
 
 ```
-メインセッション（指揮者）
-  ├── 永続ファイルの読み書き（状態管理）
-  ├── TeamCreate で実行チームを構成
-  ├── Task / SendMessage で作業指示
-  ├── TaskList / TaskGet で進捗監視
-  └── DoD結果を読み取り、次スプリントへの遷移判断
+Main Session (Orchestrator)
+  |-- Read/write persistent files (state management)
+  |-- Compose execution team via TeamCreate
+  |-- Issue work instructions via Task / SendMessage
+  |-- Monitor progress via TaskList / TaskGet
+  +-- Read DoD results and decide transition to next sprint
 
-子エージェント（実行者） ※全て同一チーム "sprint-{N}" 内
-  ├── plan-validator: 計画整合性検証（full-adaptive時のみ）
-  ├── planner: インライン計画生成（rolling時のみ）
-  ├── implementor: コード実装（general-purpose）
-  ├── test-reviewer: テスト検証（test-reviewer）
-  ├── spec-reviewer: 仕様準拠検証（spec-reviewer）
-  ├── quality-reviewer: 品質検証（quality-reviewer）
-  └── aggregator: レビュー集約（review-aggregator）
+Child Agents (Executors) — all within the same team "sprint-{N}"
+  |-- plan-validator: Plan consistency verification (full-adaptive only)
+  |-- planner: Inline plan generation (rolling only)
+  |-- implementor: Code implementation (general-purpose)
+  |-- test-reviewer: Test validation (test-reviewer)
+  |-- spec-reviewer: Specification compliance validation (spec-reviewer)
+  |-- quality-reviewer: Quality validation (quality-reviewer)
+  +-- aggregator: Review aggregation (review-aggregator)
 ```
 
-### Loop Mechanism（Stop hook）
+### Loop Mechanism (Stop hook)
 
-Stop hook がセッション終了をブロックしてループを実現します。
-`phase: "executing"` の間のみブロックし、完了・失敗時は解放します。
+The stop hook blocks session termination to sustain the loop.
+It blocks only while `phase: "executing"`, and releases on completion or failure.
 
-### Persistence（Compaction耐性）
+### Persistence (Compaction Resilience)
 
-全ての重要情報は `.sprint-loop/` 配下に永続ファイルとして保存されます。
-Stop hook の続行メッセージが永続ファイルのパスを指示するため、
-Compaction で文脈が失われても正しい状態から再開できます。
+All critical information is persisted as files under `.sprint-loop/`.
+The stop hook's continuation message points to persistent file paths, so
+correct state recovery is possible even if context is lost through compaction.
 
 ## File Structure
 
 ```
 {project}/.sprint-loop/
-  plan.md                              # マスタープラン（Phase セクション含む）
-  config.json                          # 実行設定（schema_version: 1）
+  plan.md                              # Master plan (includes Phase sections)
+  config.json                          # Execution config (schema_version: 1)
   state/
-    sprint-loop-state.json             # メイン状態ファイル（schema_version: 1）
-    planning-result.md                 # rolling モード: planner の出力
+    sprint-loop-state.json             # Main state file (schema_version: 1)
+    planning-result.md                 # rolling mode: planner output
   sprints/
     sprint-001/
-      spec.md                          # スプリント仕様
-      design.md                        # 詳細設計（目安: 50-500行）
-      dod.md                           # 受け入れ基準
-      execution-log.md                 # 実行ログ
-      plan-revision.md                 # full-adaptive: 計画検証結果
+      spec.md                          # Sprint specification
+      design.md                        # Detailed design (guideline: 50-500 lines)
+      dod.md                           # Acceptance criteria
+      execution-log.md                 # Execution log
+      plan-revision.md                 # full-adaptive: plan verification result
       reviews/
-        {axis_id}-attempt-{N}.json     # 個別DoD評価結果（例: test-attempt-1.json）
-        summary-attempt-{N}.json       # 集約サマリー
-      result.md                        # 完了サマリー
+        {axis_id}-attempt-{N}.json     # Individual DoD evaluation results (e.g., test-attempt-1.json)
+        summary-attempt-{N}.json       # Aggregated summary
+      result.md                        # Completion summary
   logs/
-    orchestrator-log.md                # 指揮者の判断ログ
+    orchestrator-log.md                # Orchestrator decision log
 ```
 
 ## Planning Strategies
 
-| 戦略 | 概要 | 適したプロジェクト |
-|------|------|-------------------|
-| `full`（デフォルト） | 全スプリントを一度に詳細化 | 小〜中規模、仕様が安定 |
-| `full-adaptive` | 全スプリントを詳細化 + 各スプリント開始前に計画検証・自律修正 | 中〜大規模、詳細に不確実性がある |
-| `rolling` | 最初の N スプリントのみ詳細化、残りはタイトル+ゴール。実行中に次バッチを自律生成 | 大規模、不確実性が高い、探索的 |
+| Strategy | Summary | Suitable Projects |
+|----------|---------|-------------------|
+| `full` (default) | Detail all sprints at once | Small to medium, stable specs |
+| `full-adaptive` | Detail all sprints + verify/self-correct plan before each sprint | Medium to large, some uncertainty in details |
+| `rolling` | Detail only the first N sprints, remaining are title+goal only. Auto-generate next batch during execution | Large, high uncertainty, exploratory |
 
 ## Phase Grouping
 
-8スプリント以上のプロジェクトでは、スプリントを論理的な Phase にグルーピングする。
-Phase は `plan.md` のセクション構成と `state.json` の `current_phase` メタデータで表現。
-ディレクトリ構造は変更しない（`sprints/sprint-NNN/` のフラット構造を維持）。
+For projects with 8+ sprints, group sprints into logical Phases.
+Phases are expressed via section structure in `plan.md` and `current_phase` metadata in `state.json`.
+Directory structure remains unchanged (flat `sprints/sprint-NNN/` structure).
 
 ## Per-Sprint DoD Overrides
 
-`config.json` の `sprint_overrides` でスプリントごとに DoD 軸をスキップ or オーバーライド可能。
+Use `sprint_overrides` in `config.json` to skip or override DoD axes per sprint.
 
 ```json
 {
@@ -109,53 +109,53 @@ Phase は `plan.md` のセクション構成と `state.json` の `current_phase`
 ## Sprint Execution Workflow
 
 ```
-Sprint N 開始
-  │
-  ├─ 0. Pre-Phase: 計画検証/インライン計画（planning_strategy に応じて）
-  │     ├─ full: スキップ
-  │     ├─ full-adaptive: plan-validator で計画整合性検証
-  │     └─ rolling: planner で次バッチの計画生成（必要時のみ）
-  ├─ 1. spec.md, design.md, dod.md 読み込み
-  ├─ 2. TeamCreate で実装チーム構成
-  ├─ 3. implementor に実装委譲
-  ├─ 4. 実装完了待ち
-  ├─ 5. DoD評価（sprint_overrides 適用後の有効軸で並列評価）
-  ├─ 6. 結果判定
-  │     ├─ 全PASS → Sprint完了 → sprints配列更新 → Phase遷移判定 → 次へ
-  │     └─ FAIL → フィードバック → 再実装
-  └─ 7. チームシャットダウン
+Sprint N Start
+  |
+  |-- 0. Pre-Phase: Plan verification / inline planning (based on planning_strategy)
+  |     |-- full: Skip
+  |     |-- full-adaptive: Verify plan consistency via plan-validator
+  |     +-- rolling: Generate next batch plan via planner (only when needed)
+  |-- 1. Read spec.md, design.md, dod.md
+  |-- 2. Compose implementation team via TeamCreate
+  |-- 3. Delegate implementation to implementor
+  |-- 4. Wait for implementation completion
+  |-- 5. DoD evaluation (parallel evaluation on active axes after sprint_overrides applied)
+  |-- 6. Verdict
+  |     |-- All PASS -> Sprint complete -> Update sprints array -> Phase transition check -> Next
+  |     +-- FAIL -> Feedback -> Re-implement
+  +-- 7. Team shutdown
 ```
 
 ## Safety Mechanisms
 
 | Check | Condition | Action |
 |-------|-----------|--------|
-| Context limit | stop_reason に "context" 含む | allow（デッドロック防止） |
-| User abort | stop_reason に "user" 含む | allow（Ctrl+C 尊重） |
-| Session mismatch | session_id 不一致 | allow（クロスセッション防止） |
-| Staleness | 最終更新から2時間超 | allow（スタックロック防止） |
-| Max iterations | 設定値到達（デフォルト100、最大1000） | allow + failed |
-| Max DoD retries | 設定値到達（デフォルト5、最大10） | allow + failed |
+| Context limit | stop_reason contains "context" | allow (prevent deadlock) |
+| User abort | stop_reason contains "user" | allow (respect Ctrl+C) |
+| Session mismatch | session_id mismatch | allow (prevent cross-session) |
+| Staleness | Last update > 2 hours ago | allow (prevent stuck lock) |
+| Max iterations | Reached configured limit (default 100, max 1000) | allow + failed |
+| Max DoD retries | Reached configured limit (default 5, max 10) | allow + failed |
 
 ## Review Result File Naming Convention
 
-| ファイル種別 | パス | 例 |
-|-------------|------|-----|
-| 個別レビュー | `reviews/{axis_id}-attempt-{N}.json` | `reviews/test-attempt-1.json` |
-| 集約サマリー | `reviews/summary-attempt-{N}.json` | `reviews/summary-attempt-1.json` |
+| File Type | Path | Example |
+|-----------|------|---------|
+| Individual review | `reviews/{axis_id}-attempt-{N}.json` | `reviews/test-attempt-1.json` |
+| Aggregated summary | `reviews/summary-attempt-{N}.json` | `reviews/summary-attempt-1.json` |
 
-`{N}` は `dod_retry_count + 1`（1始まり）。
-古い `review-001.json` 形式は使用しない。
+`{N}` is `dod_retry_count + 1` (1-based).
+Do NOT use the old `review-001.json` format.
 
 ## Iteration Counter Definitions
 
-| カウンタ | 定義 | インクリメント契機 |
-|---------|------|-------------------|
-| `total_iterations` | Stop hookのブロック回数（内部メカニズム用） | Stop hook が block を返すたび |
-| `dod_retry_count` | 現スプリントの impl→review サイクル数（品質ゲート用） | DoD rejected で再実装に戻るたび |
+| Counter | Definition | Increment Trigger |
+|---------|------------|-------------------|
+| `total_iterations` | Number of stop hook blocks (internal mechanism) | Each time the stop hook returns block |
+| `dod_retry_count` | Number of impl->review cycles for current sprint (quality gate) | Each time DoD is rejected and re-implementation starts |
 
-- `total_iterations` はループ安全機構用（上限到達で強制停止）。リセットされない。
-- `dod_retry_count` は品質ゲート用（1スプリントあたりの再試行上限）。スプリント完了時に 0 にリセット。
+- `total_iterations` is for the loop safety mechanism (force stop at limit). Never reset.
+- `dod_retry_count` is for the quality gate (per-sprint retry limit). Reset to 0 on sprint completion.
 
 ## Config Schema (v1)
 
@@ -164,8 +164,8 @@ Sprint N 開始
   "schema_version": 1,
   "project": { "name": "...", "tech_stack": "..." },
   "planning_strategy": "full | full-adaptive | rolling",
-  "rolling_horizon": "null | number (rolling時のみ)",
-  "planned_through_sprint": "null | number (rolling時のみ)",
+  "rolling_horizon": "null | number (rolling only)",
+  "planned_through_sprint": "null | number (rolling only)",
   "max_total_iterations": 100,
   "max_dod_retries": 5,
   "review_axes": [{ "id": "...", "name": "...", "builtin": true }],
@@ -184,7 +184,7 @@ Sprint N 開始
   "phase": "planned | executing | fixing | replanning | replanned | all_complete | failed",
   "current_sprint": 1,
   "total_sprints": "N",
-  "current_phase": "Phase名 or null",
+  "current_phase": "Phase name or null",
   "current_subphase": "implementing | reviewing | planning | completed | null",
   "total_iterations": 0,
   "dod_retry_count": 0,
@@ -200,36 +200,36 @@ Sprint N 開始
 }
 ```
 
-## Schema Conformance Rules（全スキル共通）
+## Schema Conformance Rules (All Skills)
 
-state.json と config.json はプログラムコード（stop-hook.cjs, session-start.cjs, safety.cjs）が直接パースします。
-**以下のルールに違反するとループが起動・継続できません。**
+state.json and config.json are parsed directly by program code (stop-hook.cjs, session-start.cjs, safety.cjs).
+**Violating the following rules will prevent the loop from starting or continuing.**
 
-### フィールド命名規則
-- **全フィールドは `snake_case`** を使用すること
-- `camelCase` は禁止: `currentSprint` ❌ → `current_sprint` ✅, `totalSprints` ❌ → `total_sprints` ✅, `dodRetryCount` ❌ → `dod_retry_count` ✅, `planStrategy` ❌ → `planning_strategy` ✅, `maxIterations` ❌ → `max_total_iterations` ✅
+### Field Naming Convention
+- **All fields MUST use `snake_case`**
+- `camelCase` is prohibited: `currentSprint` -> `current_sprint`, `totalSprints` -> `total_sprints`, `dodRetryCount` -> `dod_retry_count`, `planStrategy` -> `planning_strategy`, `maxIterations` -> `max_total_iterations`
 
-### state.json の構造ルール
-- ライフサイクル状態は **`phase`** フィールド: `status` ❌, `state` ❌
-- `phase` の許容値: `"planned"`, `"executing"`, `"fixing"`, `"replanning"`, `"replanned"`, `"all_complete"`, `"failed"` — 他の値 (`"ready"` ❌, `"initialized"` ❌, `"running"` ❌) は禁止
-- `current_sprint` は **数値** (例: `1`): `"sprint-001"` ❌, `"1"` ❌
-- `sprints` は **配列**: `[{"number": 1, "title": "...", "status": "pending"}]`
-  - オブジェクト形式 `{"sprint-001": {...}}` ❌
-  - `completed_sprints` / `failed_sprints` への分離 ❌
-- `sprints[].status` の許容値: `"pending"`, `"in_progress"`, `"completed"` のみ
-- `schema_version: 1` を必ず含めること
+### state.json Structure Rules
+- Lifecycle state uses the **`phase`** field: `status` is WRONG, `state` is WRONG
+- Allowed `phase` values: `"planned"`, `"executing"`, `"fixing"`, `"replanning"`, `"replanned"`, `"all_complete"`, `"failed"` — other values (`"ready"`, `"initialized"`, `"running"`) are prohibited
+- `current_sprint` is a **number** (e.g., `1`): `"sprint-001"` is WRONG, `"1"` is WRONG
+- `sprints` is an **array**: `[{"number": 1, "title": "...", "status": "pending"}]`
+  - Object format `{"sprint-001": {...}}` is WRONG
+  - Splitting into `completed_sprints` / `failed_sprints` is WRONG
+- Allowed `sprints[].status` values: `"pending"`, `"in_progress"`, `"completed"` only
+- MUST include `schema_version: 1`
 
-### config.json の構造ルール
-- 反復上限は `max_total_iterations`: `max_iterations` ❌
-- 計画戦略は `planning_strategy`: `planStrategy` ❌, `strategy` ❌
-- レビュー軸は `review_axes` 配列: 各要素は `{id, name, builtin}` を必須で含む
-- `schema_version: 1` を必ず含めること
+### config.json Structure Rules
+- Iteration limit is `max_total_iterations`: `max_iterations` is WRONG
+- Planning strategy is `planning_strategy`: `planStrategy` is WRONG, `strategy` is WRONG
+- Review axes is the `review_axes` array: each element MUST include `{id, name, builtin}`
+- MUST include `schema_version: 1`
 
-### Review JSON の構造ルール（sub-agent 出力）
-- 個別レビュー: `{sprint_id, attempt, timestamp, reviews: {axis_id: {verdict, details, failures}}}`
-  - `verdict` の許容値: `"approved"`, `"rejected"` のみ
-- 集約サマリー: `{sprint_id, attempt, timestamp, overall_verdict, axis_verdicts, action_required}`
-  - `overall_verdict` の許容値: `"approved"`, `"rejected"` のみ
+### Review JSON Structure Rules (sub-agent output)
+- Individual review: `{sprint_id, attempt, timestamp, reviews: {axis_id: {verdict, details, failures}}}`
+  - Allowed `verdict` values: `"approved"`, `"rejected"` only
+- Aggregated summary: `{sprint_id, attempt, timestamp, overall_verdict, axis_verdicts, action_required}`
+  - Allowed `overall_verdict` values: `"approved"`, `"rejected"` only
 
 ## Rules for the Orchestrator
 

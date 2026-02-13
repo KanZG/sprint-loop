@@ -31,8 +31,8 @@ function buildRestorationContext(state, config) {
   lines.push('');
 
   if (phase === 'executing') {
-    lines.push('あなたはsprint-loopの**指揮者**です。自分でコードを書かないでください。');
-    lines.push('以下の永続ファイルを読み込んで、現在の状態から作業を再開してください:');
+    lines.push('You are the sprint-loop **orchestrator**. Do NOT write code yourself.');
+    lines.push('Read the following persistent files and resume work from the current state:');
     lines.push('');
     lines.push(`  Read: .sprint-loop/state/sprint-loop-state.json`);
     lines.push(`  Read: .sprint-loop/sprints/sprint-${sprint}/spec.md`);
@@ -53,51 +53,51 @@ function buildRestorationContext(state, config) {
       const allAxisIds = effectiveAxes.map(a => a.id);
       const remainingAxes = allAxisIds.filter(id => !completedAxes.includes(id));
 
-      lines.push(`### Reviewing 状態:`);
-      lines.push(`完了済み軸: [${completedAxes.join(', ')}]`);
+      lines.push(`### Review Status:`);
+      lines.push(`Completed axes: [${completedAxes.join(', ')}]`);
       if (remainingAxes.length > 0) {
-        lines.push(`未完了軸: [${remainingAxes.join(', ')}]`);
-        lines.push('残りの軸のみレビューエージェントを起動してください。完了済み軸は再起動不要です。');
+        lines.push(`Remaining axes: [${remainingAxes.join(', ')}]`);
+        lines.push('Only launch review agents for remaining axes. Do not restart completed axes.');
       } else {
-        lines.push('全レビュー軸が完了しています。aggregator を起動して summary を生成してください。');
+        lines.push('All review axes completed. Launch the aggregator to generate the summary.');
       }
       lines.push('');
     }
 
     if (subphase === 'planning') {
-      lines.push('### Planning 状態:');
-      lines.push('rolling モードでインライン計画生成中です。');
-      lines.push(`計画済み: Sprint ${state.planned_through_sprint || '?'} まで`);
-      lines.push('planner エージェントをスプリントチーム内に起動して次バッチの計画を生成してください。');
+      lines.push('### Planning Status:');
+      lines.push('Generating inline plans in rolling mode.');
+      lines.push(`Planned through: Sprint ${state.planned_through_sprint || '?'}`);
+      lines.push('Launch planner agent within the sprint team to generate the next batch of plans.');
       lines.push('');
     }
 
-    lines.push('AgentTeam（TeamCreate / Task）で全ての作業を子エージェントに委譲してください。');
+    lines.push('Delegate all work to child agents via AgentTeam (TeamCreate / Task).');
   } else if (phase === 'planned') {
-    lines.push('スプリント計画が完了しています。`/sprint-start` で実行を開始できます。');
+    lines.push('Sprint planning is complete. Run `/sprint-start` to begin execution.');
   } else if (phase === 'all_complete') {
-    lines.push('全スプリントが正常に完了しています。');
+    lines.push('All sprints completed successfully.');
   } else if (phase === 'failed') {
-    lines.push(`実行が失敗しました: ${state.failure_reason || 'unknown reason'}`);
-    lines.push('`/sprint-resume` で最新状態から再開できます。');
+    lines.push(`Execution failed: ${state.failure_reason || 'unknown reason'}`);
+    lines.push('Run `/sprint-resume` to resume from the latest state.');
   } else if (phase === 'fixing') {
-    lines.push('Sprint-Loop Fix モードです。現スプリントの修正作業中です。');
-    lines.push(`修正前の Sub-phase: ${state.previous_subphase || 'unknown'}`);
+    lines.push('Sprint-Loop Fix mode. Fixing the current sprint.');
+    lines.push(`Sub-phase before fix: ${state.previous_subphase || 'unknown'}`);
     lines.push('');
-    lines.push('修正が中断された場合は `/sprint-resume` で再開できます。');
+    lines.push('If fixing was interrupted, run `/sprint-resume` to resume.');
   } else if (phase === 'replanning') {
-    lines.push('Sprint-Loop Replan モードです。再計画作業中です。');
+    lines.push('Sprint-Loop Replan mode. Replanning in progress.');
     lines.push('');
-    lines.push('`/sprint-replan` で再計画を完了してください。');
+    lines.push('Run `/sprint-replan` to complete replanning.');
   } else if (phase === 'replanned') {
-    lines.push('Sprint-Loop の再計画が完了しています。');
+    lines.push('Sprint-Loop replanning is complete.');
     lines.push(`Total sprints: ${state.total_sprints || 0}`);
     if (state.resume_mode) {
       lines.push('');
-      lines.push('DoD-first モード: 各スプリントは DoD 評価から開始し、PASS すれば実装スキップします。');
+      lines.push('DoD-first mode: Each sprint starts from DoD evaluation; PASS skips implementation.');
     }
     lines.push('');
-    lines.push('`/sprint-resume` で再実行を開始してください。');
+    lines.push('Run `/sprint-resume` to start re-execution.');
   }
 
   lines.push('</session-restore>');
@@ -113,9 +113,9 @@ function buildPlannedContext(state) {
   lines.push('<session-restore>');
   lines.push('[SPRINT-LOOP PLAN READY]');
   lines.push('');
-  lines.push(`計画済みスプリント数: ${state.total_sprints || 0}`);
-  lines.push('`/sprint-start` で自動実行を開始できます。');
-  lines.push('`/sprint-status` で計画内容を確認できます。');
+  lines.push(`Planned sprints: ${state.total_sprints || 0}`);
+  lines.push('Run `/sprint-start` to begin automated execution.');
+  lines.push('Run `/sprint-status` to review the plan.');
   lines.push('</session-restore>');
   return lines.join('\n');
 }

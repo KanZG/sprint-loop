@@ -4,258 +4,257 @@ description: Health check and auto-fix for sprint-loop plan files (state.json, c
 disable-model-invocation: true
 ---
 
-# /sprint-check — スプリント計画ヘルスチェック
+# /sprint-check — Sprint Plan Health Check
 
-sprint-loop の計画ファイル（state.json, config.json, スプリントファイル）がスキーマに準拠しているか、
-実行データに不整合がないかを検出・修正するヘルスチェックスキルです。
+Health check skill that detects and fixes schema non-compliance in sprint-loop plan files (state.json, config.json, sprint files) and inconsistencies in execution data.
 
-## 重要: ExitPlanMode 後の動作
+## Important: Behavior After ExitPlanMode
 
-`/sprint-check` は問題の検出と修正計画を提示するため、**Plan Mode を強制**します。
+`/sprint-check` detects issues and presents a correction plan, so it **enforces Plan Mode**.
 
-### ExitPlanMode のタイミングと計画ファイルの書き方
+### ExitPlanMode Timing and Writing Plan Files
 
-1. Plan Mode でなければ **EnterPlanMode を呼び出す**
-2. 全チェックを実行し、結果を計画ファイルに書き出す
-3. **ExitPlanMode を呼ぶ前に**、計画ファイルの末尾に以下のセクションを必ず追記すること:
+1. If not in Plan Mode, **call EnterPlanMode**
+2. Run all checks and write results to the plan file
+3. **Before calling ExitPlanMode**, always append the following section to the end of the plan file:
 
-**問題がある場合:**
-
-~~~markdown
-## 承認後のアクション（ExitPlanMode 後に実行）
-
-**注意: 以下はプロジェクトコードの実装ではありません。`.sprint-loop/` 配下のファイル修正です。**
-
-1. `.sprint-loop/config.json` — {修正内容}
-2. `.sprint-loop/state/sprint-loop-state.json` — {修正内容}
-3. 完了報告の表示
-~~~
-
-**問題がない場合:**
+**When issues exist:**
 
 ~~~markdown
-## 承認後のアクション（ExitPlanMode 後に実行）
+## Post-Approval Actions (Execute after ExitPlanMode)
 
-問題は検出されませんでした。修正は不要です。
+**Note: The following is NOT project code implementation. It is `.sprint-loop/` file corrections.**
+
+1. `.sprint-loop/config.json` — {correction details}
+2. `.sprint-loop/state/sprint-loop-state.json` — {correction details}
+3. Display completion report
 ~~~
 
-4. ExitPlanMode 承認後、**計画ファイルの「承認後のアクション」セクションに従って**修正を実行する
-5. **プロジェクトのソースコードには一切触れないこと** — 修正するのは `.sprint-loop/` 配下のファイルのみ
+**When no issues exist:**
 
-## 前提条件チェック
+~~~markdown
+## Post-Approval Actions (Execute after ExitPlanMode)
 
-1. `.sprint-loop/` ディレクトリの存在を確認
-   - 存在しない → エラー: "`.sprint-loop/` が見つかりません。`/sprint-plan` で計画を策定してください"
-2. `.sprint-loop/state/sprint-loop-state.json` を読み込む
-   - 存在しない → エラー: "状態ファイルが見つかりません。`/sprint-plan` で計画を策定してください"
-3. `.sprint-loop/config.json` を読み込む
-   - 存在しない → エラー: "設定ファイルが見つかりません。`/sprint-plan` で計画を策定してください"
-4. Plan Mode でなければ → EnterPlanMode を呼び出す
+No issues detected. No corrections needed.
+~~~
 
-## 手順
+4. After ExitPlanMode approval, execute corrections **following the "Post-Approval Actions" section in the plan file**
+5. **Do not touch project source code** — only modify files under `.sprint-loop/`
 
-### Step 1: 状態分類
+## Precondition Checks
 
-state.json の `phase` フィールドを読み取り、3パターンに分類する:
+1. Verify `.sprint-loop/` directory exists
+   - Not found -> Error: "`.sprint-loop/` not found. Run `/sprint-plan` to create a plan."
+2. Read `.sprint-loop/state/sprint-loop-state.json`
+   - Not found -> Error: "State file not found. Run `/sprint-plan` to create a plan."
+3. Read `.sprint-loop/config.json`
+   - Not found -> Error: "Config file not found. Run `/sprint-plan` to create a plan."
+4. If not in Plan Mode -> call EnterPlanMode
 
-| 状態 | 判定条件 | 動作 |
-|------|---------|------|
-| 全完了 | `phase: "all_complete"` | 「全スプリント完了済み。チェック不要です。」と報告して ExitPlanMode で終了 |
-| 実行途中 | `phase` が `"executing"` / `"failed"` / `"fixing"` / `"replanned"` のいずれか | Step 2 → カテゴリ A + B + C + D を実行 |
-| 全未実行 | `phase: "planned"` | Step 2 → カテゴリ A + B + C を実行（D はスキップ） |
+## Procedure
 
-`phase: "replanning"` の場合: 「再計画中です。`/sprint-replan` を完了してからチェックしてください。」と報告して終了。
+### Step 1: State Classification
 
-### Step 2: 全関連ファイルの読み込み
+Read the `phase` field from state.json and classify into 3 patterns:
 
-以下のファイルを全て読み込む:
+| State | Condition | Action |
+|-------|----------|--------|
+| All complete | `phase: "all_complete"` | Report "All sprints complete. No check needed." and exit via ExitPlanMode |
+| Mid-execution | `phase` is one of `"executing"` / `"failed"` / `"fixing"` / `"replanned"` | Step 2 -> run Categories A + B + C + D |
+| All unexecuted | `phase: "planned"` | Step 2 -> run Categories A + B + C (skip D) |
+
+If `phase: "replanning"`: Report "Replanning in progress. Complete `/sprint-replan` before running checks." and exit.
+
+### Step 2: Read All Related Files
+
+Read all of the following files:
 
 1. `.sprint-loop/config.json`
 2. `.sprint-loop/state/sprint-loop-state.json`
 3. `.sprint-loop/plan.md`
-4. 全スプリントディレクトリ配下の `spec.md`, `design.md`, `dod.md`
-5. 完了済みスプリントの `result.md`, `reviews/summary-attempt-*.json`（実行途中の場合のみ）
+4. `spec.md`, `design.md`, `dod.md` under all sprint directories
+5. `result.md`, `reviews/summary-attempt-*.json` for completed sprints (mid-execution only)
 
-### Step 3: チェック実行
+### Step 3: Run Checks
 
-以下の 4 カテゴリのチェックを実行する。各チェック項目について、PASS / FAIL / WARN を判定する。
-
----
-
-#### カテゴリ A: config.json チェック
-
-| # | チェック項目 | 修正可否 |
-|---|------------|---------|
-| A-1 | `schema_version: 1` が存在するか | 自動修正: `schema_version: 1` を追加 |
-| A-2 | `planning_strategy` が存在するか（`planStrategy` ❌, `strategy` ❌） | 自動修正: camelCase/別名から変換、またはデフォルト `"full"` を追加 |
-| A-3 | `max_total_iterations` が存在するか（`max_iterations` ❌, `maxIterations` ❌） | 自動修正: 別名から変換、またはデフォルト `100` を追加 |
-| A-4 | `max_dod_retries` が存在するか（`maxDodRetries` ❌） | 自動修正: camelCase から変換、またはデフォルト `5` を追加 |
-| A-5 | `review_axes` が配列で、各要素に `{id, name, builtin}` があるか | 自動修正: 欠落フィールドにデフォルト値を補完 |
-| A-6 | `project` オブジェクトが存在するか | 自動修正: `{"name": "unknown", "tech_stack": "unknown"}` を追加 |
-| A-7 | `sprint_overrides` が存在するか | 自動修正: 空オブジェクト `{}` を追加 |
-| A-8 | 全フィールド名が `snake_case` か（camelCase 検出） | 自動修正: camelCase → snake_case に変換 |
+Run the following 4 categories of checks. For each check item, determine PASS / FAIL / WARN.
 
 ---
 
-#### カテゴリ B: state.json チェック
+#### Category A: config.json Checks
 
-| # | チェック項目 | 修正可否 |
-|---|------------|---------|
-| B-1 | `schema_version: 1` が存在するか | 自動修正: `schema_version: 1` を追加 |
-| B-2 | `phase` フィールドが存在し、許容値（`"planned"`, `"executing"`, `"fixing"`, `"replanning"`, `"replanned"`, `"all_complete"`, `"failed"`）のいずれかであるか。`status` ❌, `state` ❌ も検出。許容値以外（`"ready"` ❌, `"initialized"` ❌, `"running"` ❌）も検出 | 自動修正: `status`/`state` → `phase` にリネーム。不正値はコンテキストから推定（不能なら `"planned"` にフォールバック） |
-| B-3 | `current_sprint` が数値型か（文字列 `"sprint-001"` ❌, `"1"` ❌） | 自動修正: 文字列から数値を抽出して変換 |
-| B-4 | `sprints` が配列 `[{number, title, status}]` か。オブジェクト形式 ❌, `completed_sprints`/`failed_sprints` 分離 ❌ | 自動修正: オブジェクト形式 → 配列に変換。分離された配列をマージして統合 |
-| B-5 | `sprints[].status` が `"pending"` / `"in_progress"` / `"completed"` のいずれかか | 自動修正: 不正値を推定（`"done"` → `"completed"`, `"active"` → `"in_progress"` 等） |
-| B-6 | `current_subphase` が許容値（`"implementing"`, `"reviewing"`, `"planning"`, `"completed"`, `null`）か。`"done"` ❌ | 自動修正: `"done"` → `"completed"` に変換 |
-| B-7 | `last_checked_at` が存在するか（`last_updated` ❌, `lastCheckedAt` ❌） | 自動修正: 別名から変換、または現在時刻を設定 |
-| B-8 | `total_sprints` が `sprints` 配列の長さと一致するか | 自動修正: `sprints` 配列の長さに合わせて更新 |
-| B-9 | 全フィールド名が `snake_case` か（camelCase 検出） | 自動修正: camelCase → snake_case に変換 |
-| B-10 | 非スキーマフィールドの検出（`current_sprint_index`, `completed_sprints`, `failed_sprints` 等） | 自動修正: 非スキーマフィールドを除去（値は統合先に移行） |
+| # | Check Item | Fix |
+|---|-----------|-----|
+| A-1 | `schema_version: 1` exists | Auto-fix: add `schema_version: 1` |
+| A-2 | `planning_strategy` exists (`planStrategy` ❌, `strategy` ❌) | Auto-fix: convert from camelCase/alias, or add default `"full"` |
+| A-3 | `max_total_iterations` exists (`max_iterations` ❌, `maxIterations` ❌) | Auto-fix: convert from alias, or add default `100` |
+| A-4 | `max_dod_retries` exists (`maxDodRetries` ❌) | Auto-fix: convert from camelCase, or add default `5` |
+| A-5 | `review_axes` is an array with `{id, name, builtin}` in each element | Auto-fix: add default values for missing fields |
+| A-6 | `project` object exists | Auto-fix: add `{"name": "unknown", "tech_stack": "unknown"}` |
+| A-7 | `sprint_overrides` exists | Auto-fix: add empty object `{}` |
+| A-8 | All field names are `snake_case` (detect camelCase) | Auto-fix: convert camelCase -> snake_case |
 
-**state.json の許容フィールド一覧**（これ以外は非スキーマフィールド）:
+---
+
+#### Category B: state.json Checks
+
+| # | Check Item | Fix |
+|---|-----------|-----|
+| B-1 | `schema_version: 1` exists | Auto-fix: add `schema_version: 1` |
+| B-2 | `phase` field exists with an allowed value (`"planned"`, `"executing"`, `"fixing"`, `"replanning"`, `"replanned"`, `"all_complete"`, `"failed"`). Detect `status` ❌, `state` ❌. Detect disallowed values (`"ready"` ❌, `"initialized"` ❌, `"running"` ❌) | Auto-fix: rename `status`/`state` -> `phase`. Infer invalid values from context (fall back to `"planned"` if unable) |
+| B-3 | `current_sprint` is a number type (string `"sprint-001"` ❌, `"1"` ❌) | Auto-fix: extract number from string and convert |
+| B-4 | `sprints` is an array `[{number, title, status}]`. Object format ❌, `completed_sprints`/`failed_sprints` separation ❌ | Auto-fix: convert object format -> array. Merge separated arrays into unified array |
+| B-5 | `sprints[].status` is one of `"pending"` / `"in_progress"` / `"completed"` | Auto-fix: infer invalid values (`"done"` -> `"completed"`, `"active"` -> `"in_progress"`, etc.) |
+| B-6 | `current_subphase` is an allowed value (`"implementing"`, `"reviewing"`, `"planning"`, `"completed"`, `null`). `"done"` ❌ | Auto-fix: convert `"done"` -> `"completed"` |
+| B-7 | `last_checked_at` exists (`last_updated` ❌, `lastCheckedAt` ❌) | Auto-fix: convert from alias, or set to current time |
+| B-8 | `total_sprints` matches the length of the `sprints` array | Auto-fix: update to match `sprints` array length |
+| B-9 | All field names are `snake_case` (detect camelCase) | Auto-fix: convert camelCase -> snake_case |
+| B-10 | Detect non-schema fields (`current_sprint_index`, `completed_sprints`, `failed_sprints`, etc.) | Auto-fix: remove non-schema fields (migrate values to proper fields) |
+
+**Allowed state.json fields** (anything else is a non-schema field):
 `schema_version`, `active`, `session_id`, `phase`, `current_sprint`, `total_sprints`, `current_phase`, `current_subphase`, `total_iterations`, `dod_retry_count`, `completed_review_axes`, `planning_strategy`, `planned_through_sprint`, `resume_mode`, `previous_subphase`, `sprints`, `started_at`, `completed_at`, `last_checked_at`, `max_total_iterations`, `max_dod_retries`
 
 ---
 
-#### カテゴリ C: スプリントファイルチェック（全未実行・実行途中 共通）
+#### Category C: Sprint File Checks (common to all-unexecuted and mid-execution)
 
-| # | チェック項目 | 修正可否 |
-|---|------------|---------|
-| C-1 | `spec.md` が存在するか（`planning_strategy: "rolling"` の場合は `planned_through_sprint` まで） | 報告のみ: ファイル再生成は `/sprint-plan` または `/sprint-replan` の責務 |
-| C-2 | `design.md` が存在するか（同上） | 報告のみ |
-| C-3 | `dod.md` が存在するか（同上） | 報告のみ |
-| C-4 | `dod.md` のセクション見出し（`## {axis_id}:` 形式）が `config.review_axes` と整合するか | 報告のみ: 内容修正は `/sprint-fix` または `/sprint-replan` の責務 |
-| C-5 | ディレクトリ名が `sprint-NNN`（3桁ゼロパディング）形式か | 報告のみ |
-| C-6 | `state.sprints` 配列の各エントリに対応するディレクトリ `sprints/sprint-{NNN}/` が存在するか | 報告のみ |
+| # | Check Item | Fix |
+|---|-----------|-----|
+| C-1 | `spec.md` exists (for `planning_strategy: "rolling"`, only up to `planned_through_sprint`) | Report only: file regeneration is the responsibility of `/sprint-plan` or `/sprint-replan` |
+| C-2 | `design.md` exists (same as above) | Report only |
+| C-3 | `dod.md` exists (same as above) | Report only |
+| C-4 | `dod.md` section headings (`## {axis_id}:` format) are consistent with `config.review_axes` | Report only: content fixes are the responsibility of `/sprint-fix` or `/sprint-replan` |
+| C-5 | Directory names follow `sprint-NNN` (3-digit zero-padded) format | Report only |
+| C-6 | A directory `sprints/sprint-{NNN}/` exists for each entry in `state.sprints` array | Report only |
 
 ---
 
-#### カテゴリ D: 実行データ整合性チェック（実行途中のみ）
+#### Category D: Execution Data Consistency Checks (mid-execution only)
 
-| # | チェック項目 | 修正可否 |
-|---|------------|---------|
-| D-1 | `current_sprint` に対応するスプリントの `sprints[].status` が `"in_progress"` か | 自動修正: 該当スプリントの status を `"in_progress"` に更新 |
-| D-2 | 完了済みスプリント（`sprints[].status === "completed"`）に `result.md` が存在するか | 報告のみ |
-| D-3 | 完了済みスプリントに `reviews/summary-attempt-*.json` が存在するか | 報告のみ |
-| D-4 | `state.total_sprints` とディスク上のスプリントディレクトリ数が一致するか | 報告のみ（ディレクトリ数の方が正しいとは限らないため） |
-| D-5 | `state.planning_strategy` と `config.planning_strategy` が一致するか | 自動修正: `config.planning_strategy` の値を `state.planning_strategy` に反映 |
-| D-6 | `max_total_iterations` / `max_dod_retries` が state と config で一致するか（state に存在する場合） | 自動修正: `config` の値を state に反映 |
+| # | Check Item | Fix |
+|---|-----------|-----|
+| D-1 | The sprint corresponding to `current_sprint` has `sprints[].status` of `"in_progress"` | Auto-fix: update the sprint's status to `"in_progress"` |
+| D-2 | Completed sprints (`sprints[].status === "completed"`) have `result.md` | Report only |
+| D-3 | Completed sprints have `reviews/summary-attempt-*.json` | Report only |
+| D-4 | `state.total_sprints` matches the number of sprint directories on disk | Report only (disk count is not necessarily correct) |
+| D-5 | `state.planning_strategy` matches `config.planning_strategy` | Auto-fix: apply `config.planning_strategy` value to `state.planning_strategy` |
+| D-6 | `max_total_iterations` / `max_dod_retries` match between state and config (when present in state) | Auto-fix: apply `config` values to state |
 
-### Step 4: チェック結果の整理
+### Step 4: Organize Check Results
 
-全チェック結果を以下のフォーマットで計画ファイルに書き出す:
+Write all check results to the plan file in the following format:
 
 ~~~markdown
-# Sprint-Check 結果
+# Sprint-Check Results
 
-## サマリー
+## Summary
 
-| カテゴリ | PASS | FAIL | WARN |
-|---------|------|------|------|
+| Category | PASS | FAIL | WARN |
+|----------|------|------|------|
 | A: config.json | {N} | {N} | {N} |
 | B: state.json | {N} | {N} | {N} |
-| C: スプリントファイル | {N} | {N} | {N} |
-| D: 実行データ整合性 | {N} | {N} | {N} |
-| **合計** | **{N}** | **{N}** | **{N}** |
+| C: Sprint files | {N} | {N} | {N} |
+| D: Execution data consistency | {N} | {N} | {N} |
+| **Total** | **{N}** | **{N}** | **{N}** |
 
-## 検出された問題
+## Detected Issues
 
-### 自動修正可能（承認後に適用）
+### Auto-fixable (applied after approval)
 
-1. [A-8] config.json: `planningStrategy` → `planning_strategy` にリネーム
-2. [B-3] state.json: `current_sprint` が文字列 `"3"` → 数値 `3` に変換
+1. [A-8] config.json: Rename `planningStrategy` -> `planning_strategy`
+2. [B-3] state.json: Convert `current_sprint` from string `"3"` -> number `3`
 3. ...
 
-### 報告のみ（手動対応が必要）
+### Report Only (manual action required)
 
-1. [C-1] `sprints/sprint-003/spec.md` が存在しません → `/sprint-replan` で再生成してください
-2. [C-4] `sprints/sprint-002/dod.md` に `visual` 軸のセクションがありません → `/sprint-fix` で修正してください
+1. [C-1] `sprints/sprint-003/spec.md` not found -> Regenerate with `/sprint-replan`
+2. [C-4] `sprints/sprint-002/dod.md` missing `visual` axis section -> Fix with `/sprint-fix`
 3. ...
 
-## 承認後のアクション（ExitPlanMode 後に実行）
+## Post-Approval Actions (Execute after ExitPlanMode)
 
-**注意: 以下はプロジェクトコードの実装ではありません。`.sprint-loop/` 配下のファイル修正です。**
+**Note: The following is NOT project code implementation. It is `.sprint-loop/` file corrections.**
 
-1. `.sprint-loop/config.json` — {具体的な修正内容}
-2. `.sprint-loop/state/sprint-loop-state.json` — {具体的な修正内容}
-3. 完了報告の表示
+1. `.sprint-loop/config.json` — {specific correction details}
+2. `.sprint-loop/state/sprint-loop-state.json` — {specific correction details}
+3. Display completion report
 ~~~
 
-**FAIL が 0 件の場合**は「承認後のアクション」セクションに「問題は検出されませんでした。修正は不要です。」と記載する。
+**If FAIL count is 0**, write "No issues detected. No corrections needed." in the "Post-Approval Actions" section.
 
 ### Step 5: ExitPlanMode
 
-計画ファイルへの書き出しが完了したら、ExitPlanMode を呼び出してユーザーの承認を求める。
+After writing to the plan file, call ExitPlanMode to request user approval.
 
---- ExitPlanMode 承認後 ---
+--- After ExitPlanMode approval ---
 
-### Step 6: 修正の適用
+### Step 6: Apply Corrections
 
-承認された修正計画に従って、自動修正可能な問題のみを修正する:
+Apply only auto-fixable issues according to the approved plan:
 
-1. `config.json` の修正（該当する場合）
-2. `state/sprint-loop-state.json` の修正（該当する場合）
-3. 修正適用後、修正したファイルを再読み込みして正しく修正されたことを確認する
+1. Fix `config.json` (if applicable)
+2. Fix `state/sprint-loop-state.json` (if applicable)
+3. After applying corrections, re-read the modified files to verify they were corrected properly
 
-#### 修正ルール
+#### Correction Rules
 
-- **自動修正可能**: スキーマフィールド名の修正（camelCase → snake_case）、型変換（文字列 → 数値）、欠落フィールドの補完（デフォルト値）、非スキーマフィールドの除去、sprints 配列形式への変換、config と state の値の同期
-- **修正不可（報告のみ）**: ファイル内容の不整合（dod.md と review_axes のミスマッチ）、スプリントファイル自体の欠落（再生成は `/sprint-plan` / `/sprint-replan` の責務）
-- **プロジェクトのソースコードには一切触れないこと** — 修正するのは `.sprint-loop/` 配下のファイルのみ
-- **ループの起動や再開は行わないこと** — 修正後の実行は `/sprint-start` や `/sprint-resume` の責務
+- **Auto-fixable**: Schema field name fixes (camelCase -> snake_case), type conversions (string -> number), missing field defaults, non-schema field removal, sprints array format conversion, config-to-state value sync
+- **Not fixable (report only)**: Content inconsistencies (dod.md vs review_axes mismatch), missing sprint files (regeneration is the responsibility of `/sprint-plan` / `/sprint-replan`)
+- **Do not touch project source code** — only modify files under `.sprint-loop/`
+- **Do not start or resume the loop** — post-fix execution is the responsibility of `/sprint-start` or `/sprint-resume`
 
-### Step 7: 完了報告
+### Step 7: Completion Report
 
-修正の有無に応じてフォーマットを切り替える:
+Switch format based on whether corrections were applied:
 
-**修正を適用した場合:**
-
-```
-Sprint-Check 完了
-
-検出された問題: {FAIL件数}
-自動修正済み: {修正件数}
-要手動対応: {報告のみ件数}
-
-修正内容:
-  - config.json: {修正サマリー}
-  - state.json: {修正サマリー}
-
-{誘導メッセージ（下記参照）}
-```
-
-**問題がなかった場合:**
+**When corrections were applied:**
 
 ```
-Sprint-Check 完了
+Sprint-Check complete
 
-全チェック項目 PASS — 問題は検出されませんでした。
+Issues detected: {FAIL count}
+Auto-fixed: {fix count}
+Manual action required: {report-only count}
 
-{誘導メッセージ（下記参照）}
+Corrections applied:
+  - config.json: {fix summary}
+  - state.json: {fix summary}
+
+{guidance message (see below)}
 ```
 
-#### 誘導メッセージ
-
-修正前の `phase` に応じて適切なコマンドを案内する:
-
-| 修正前の phase | 誘導メッセージ |
-|---------------|--------------|
-| `planned` | `/sprint-start` で実行を開始できます。 |
-| `executing` / `failed` / `fixing` | `/sprint-resume` で再開できます。 |
-| `replanned` | `/sprint-resume` で再開できます。 |
-
-**報告のみの問題が残っている場合**は、誘導メッセージの前に以下を追加:
+**When no issues found:**
 
 ```
-注意: 手動対応が必要な問題が {N} 件あります。
-上記の「報告のみ」の項目を確認し、必要に応じて `/sprint-fix` または `/sprint-replan` で対応してください。
+Sprint-Check complete
+
+All check items PASS — no issues detected.
+
+{guidance message (see below)}
 ```
 
-## 重要ルール
+#### Guidance Messages
 
-- Plan Mode を必ず使用すること
-- 自動修正の適用前に必ずユーザーの承認を得ること（ExitPlanMode で承認）
-- 報告のみの問題を自動修正しようとしないこと
-- ループの起動・再開を行わないこと（修正のみで終了）
-- プロジェクトのソースコードに触れないこと（`.sprint-loop/` 配下のみ）
-- 全ての修正は CLAUDE.md の Schema Conformance Rules に準拠すること
+Provide appropriate command guidance based on the pre-fix `phase`:
+
+| Pre-fix phase | Guidance Message |
+|--------------|-----------------|
+| `planned` | Run `/sprint-start` to begin execution. |
+| `executing` / `failed` / `fixing` | Run `/sprint-resume` to resume. |
+| `replanned` | Run `/sprint-resume` to resume. |
+
+**When report-only issues remain**, prepend the following before the guidance message:
+
+```
+Note: {N} issues require manual action.
+Review the "Report Only" items above and address them with `/sprint-fix` or `/sprint-replan` as needed.
+```
+
+## Important Rules
+
+- Always use Plan Mode
+- Always obtain user approval before applying auto-fixes (via ExitPlanMode)
+- Do not attempt to auto-fix report-only issues
+- Do not start or resume the loop (corrections only, then exit)
+- Do not touch project source code (only `.sprint-loop/` files)
+- All corrections must comply with the Schema Conformance Rules in CLAUDE.md

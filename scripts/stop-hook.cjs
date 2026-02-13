@@ -33,25 +33,25 @@ function buildReviewingInstructions(sprint, config, sprintNum, state) {
   // Build reviewing status section
   let reviewingStatus = '';
   if (completedAxes.length > 0) {
-    reviewingStatus = `\n### Reviewing 状態\n完了済み軸: [${completedAxes.join(', ')}]\n`;
+    reviewingStatus = `\n### Review Status\nCompleted axes: [${completedAxes.join(', ')}]\n`;
     if (remainingAxes.length > 0) {
-      reviewingStatus += `未完了軸: [${remainingAxes.map(a => a.id).join(', ')}]\n`;
-      reviewingStatus += `残りの軸のみレビューエージェントを起動してください。完了済み軸は再起動不要です。`;
+      reviewingStatus += `Remaining axes: [${remainingAxes.map(a => a.id).join(', ')}]\n`;
+      reviewingStatus += `Only launch review agents for remaining axes. Do not restart completed axes.`;
     } else {
-      reviewingStatus += `全レビュー軸が完了しています。aggregator を起動して summary を生成してください。`;
+      reviewingStatus += `All review axes completed. Launch the aggregator to generate the summary.`;
     }
   }
 
-  return `**reviewing（DoD評価中）**:
-1. config.json の review_axes を読み込み、各軸のレビューエージェントを並列起動:
+  return `**reviewing (DoD evaluation)**:
+1. Read review_axes from config.json and launch review agents in parallel:
 ${axisLines}${reviewingStatus}
-2. 結果を .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json に出力
-3. 各レビューア完了時に state の completed_review_axes に軸IDを追加
-4. **全レビューア完了後、即座に aggregator を起動**（判断不要の固定ステップ）:
-   - aggregator が個別レビューを集約 → summary-attempt-{M}.json を出力
-5. 指揮者は summary-attempt-{M}.json **のみ**読み取る（個別レビューは読まない）
-6. 全PASS → サブフェーズを "completed" に → 状態更新
-7. いずれかFAIL → フィードバック付きで "implementing" に戻す`;
+2. Output results to .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json
+3. Add each completed axis ID to state's completed_review_axes
+4. **After all reviewers complete, immediately launch aggregator** (fixed step, no decision needed):
+   - aggregator consolidates individual reviews -> outputs summary-attempt-{M}.json
+5. Orchestrator reads **only** summary-attempt-{M}.json (do not read individual reviews)
+6. All PASS -> set sub-phase to "completed" -> update state
+7. Any FAIL -> return to "implementing" with feedback`;
 }
 
 function buildContinuationMessage(state, config) {
@@ -67,61 +67,61 @@ function buildContinuationMessage(state, config) {
 
   return `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
-あなたはsprint-loopの**指揮者**です。自分でコードを書かず、全てAgentTeamに委譲してください。
+You are the sprint-loop **orchestrator**. Do NOT write code yourself — delegate everything to AgentTeam.
 
-## 現在の状態
-現在の状態ファイルを読み取り、次のアクションを決定してください:
+## Current State
+Read the current state file and determine the next action:
   Read: .sprint-loop/state/sprint-loop-state.json
 
-## 現在のスプリント情報
+## Current Sprint Info
   Read: .sprint-loop/sprints/sprint-${sprint}/spec.md
   Read: .sprint-loop/sprints/sprint-${sprint}/design.md
   Read: .sprint-loop/sprints/sprint-${sprint}/dod.md
 
-## 実行ログ
+## Execution Log
   Read: .sprint-loop/sprints/sprint-${sprint}/execution-log.md
 
-## 現在のサブフェーズ: ${subphase}
+## Current Sub-phase: ${subphase}
 
-### サブフェーズ別アクション:
+### Actions by Sub-phase:
 
-**implementing（実装中）**:
-1. TeamCreate で実装チームを作成（まだなければ）
-2. implementor エージェントに spec.md + design.md を渡して実装を委譲
-3. 完了待ち → サブフェーズを "reviewing" に更新
+**implementing (in progress)**:
+1. Create implementation team with TeamCreate (if not already created)
+2. Delegate implementation to implementor agent with spec.md + design.md
+3. Wait for completion -> update sub-phase to "reviewing"
 
 ${reviewingSection}
 
-**planning（計画生成中 — rolling モードのみ）**:
-1. planner エージェントをスプリントチーム内に起動
-2. 次バッチのスプリント詳細計画（spec.md / design.md / dod.md）を生成
-3. 完了後、planning-result.md を読み取り、state.planned_through_sprint を更新
-4. implementing サブフェーズに遷移
+**planning (generating plan — rolling mode only)**:
+1. Launch planner agent within the sprint team
+2. Generate detailed plans (spec.md / design.md / dod.md) for the next batch of sprints
+3. After completion, read planning-result.md and update state.planned_through_sprint
+4. Transition to implementing sub-phase
 
-**completed（スプリント完了）**:
-1. result.md にスプリント完了サマリーを書き込み
-2. 次のスプリントへ遷移（current_sprint++）
-3. 全スプリント完了なら phase を "all_complete" に設定
-4. resume_mode が true の場合、次スプリントの current_subphase を "reviewing"（DoD-first）に設定
+**completed (sprint done)**:
+1. Write sprint completion summary to result.md
+2. Transition to the next sprint (current_sprint++)
+3. If all sprints done, set phase to "all_complete"
+4. If resume_mode is true, set next sprint's current_subphase to "reviewing" (DoD-first)
 
-## resume_mode（DoD-first）について
+## About resume_mode (DoD-first)
 ${state.resume_mode ? `
-**resume_mode が有効です。** 各スプリントは reviewing（DoD評価）から開始してください。
-- DoD 全 PASS → 実装スキップ、次スプリントも reviewing から
-- DoD いずれか FAIL → implementing に切り替えて通常の実装サイクル
-- 全スプリント完了時 → resume_mode: false に設定
-` : '（通常モード — implementing から開始）'}
+**resume_mode is active.** Start each sprint from reviewing (DoD evaluation).
+- All DoD PASS -> skip implementation, next sprint also starts from reviewing
+- Any DoD FAIL -> switch to implementing for normal implementation cycle
+- When all sprints complete -> set resume_mode: false
+` : '(Normal mode — start from implementing)'}
 
-## 重要ルール
-- 永続ファイルを必ず読み込んでから判断すること
-- 実行結果は必ず永続ファイルに書き込むこと
-- 状態ファイル（sprint-loop-state.json）を各ステップで更新すること
-- チームは作業完了後にシャットダウンすること
+## Important Rules
+- Always read persistent files before making decisions
+- Always write execution results to persistent files
+- Update state file (sprint-loop-state.json) at each step
+- Shut down teams after work is complete
 
-## エージェント死活チェック
-起動済みチームメンバーからの応答がないままこのメッセージを受け取った場合、
-待機中の全メンバーに ping を送信:
-  SendMessage(type="message", recipient="{メンバー名}", content="Continue.", summary="ping")`;
+## Agent Health Check
+If you receive this message with no response from launched team members,
+send a ping to all waiting members:
+  SendMessage(type="message", recipient="{member_name}", content="Continue.", summary="ping")`;
 }
 
 /**
