@@ -2,7 +2,7 @@
 name: quality-reviewer
 description: Sprint-Loop DoD reviewer - build, lint, and code quality validation
 tools: Bash, Read, Write, Glob, Grep
-model: inherit
+model: sonnet
 ---
 
 # Quality Reviewer Agent

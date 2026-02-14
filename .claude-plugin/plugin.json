@@ -1,7 +1,7 @@
 {
   "name": "sprint-loop",
-  "version": "0.1.13",
-  "description": "Sprint-based autonomous development loop for Claude Code. Plans sprints with DoD, executes via AgentTeam, and auto-transitions on approval.",
+  "version": "0.2.0",
+  "description": "Sprint-based autonomous development loop for Claude Code. Plans sprints with DoD, executes via Task(), and auto-transitions on approval.",
   "author": {
     "name": "KanZG",
     "url": "https://github.com/KanZG"

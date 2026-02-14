@@ -24,17 +24,16 @@ It loops through Plan -> Implement -> DoD Evaluation -> Auto-transition to next 
 ### Orchestrator Pattern
 
 The main session acts as the **orchestrator** and never writes code directly.
-All implementation, testing, and review are delegated to child agents via AgentTeam (`TeamCreate` / `Task`).
+All implementation, testing, and review are delegated to child agents via Task().
 
 ```
 Main Session (Orchestrator)
   |-- Read/write persistent files (state management)
-  |-- Compose execution team via TeamCreate
-  |-- Issue work instructions via Task / SendMessage
-  |-- Monitor progress via TaskList / TaskGet
+  |-- Launch sub-agents via Task()
+  |-- Collect results when Task() returns
   +-- Read DoD results and decide transition to next sprint
 
-Child Agents (Executors) — all within the same team "sprint-{N}"
+Child Agents (Executors) — launched via Task(), independent of each other
   |-- plan-validator: Plan consistency verification (full-adaptive only)
   |-- planner: Inline plan generation (rolling only)
   |-- implementor: Code implementation (general-purpose)
@@ -116,15 +115,26 @@ Sprint N Start
   |     |-- full-adaptive: Verify plan consistency via plan-validator
   |     +-- rolling: Generate next batch plan via planner (only when needed)
   |-- 1. Read spec.md, design.md, dod.md
-  |-- 2. Compose implementation team via TeamCreate
-  |-- 3. Delegate implementation to implementor
-  |-- 4. Wait for implementation completion
-  |-- 5. DoD evaluation (parallel evaluation on active axes after sprint_overrides applied)
-  |-- 6. Verdict
+  |-- 2. Delegate implementation to implementor via Task()
+  |-- 3. DoD evaluation (parallel Task() calls on active axes after sprint_overrides applied)
+  |-- 4. Verdict
   |     |-- All PASS -> Sprint complete -> Update sprints array -> Phase transition check -> Next
-  |     +-- FAIL -> Feedback -> Re-implement
-  +-- 7. Team shutdown
+  +--   +-- FAIL -> Feedback -> Re-implement
 ```
+
+## Agent Model Routing
+
+| Agent | Model | Rationale |
+|-------|-------|-----------|
+| implementor | opus (inherit) | Core code generation |
+| planner | opus (inherit) | Multi-sprint design decisions |
+| plan-validator | opus (inherit) | Architecture-level validation |
+| spec-reviewer | opus (inherit) | Deep spec comprehension for quality gate |
+| test-reviewer | opus (inherit) | Context-aware failure assessment |
+| custom axis reviewers | opus (inherit) | May involve image recognition or subjective judgment |
+| quality-reviewer | sonnet | Binary build/lint/type results |
+| dod-verify detection | sonnet | Pattern matching and cross-referencing |
+| review-aggregator | haiku | JSON aggregation only |
 
 ## Safety Mechanisms
 
@@ -238,10 +248,10 @@ state.json and config.json are parsed directly by program code (stop-hook.cjs, s
 
 When `/sprint-start` is active and you are the orchestrator:
 
-1. **NEVER write code directly** — delegate all implementation to AgentTeam
+1. **NEVER write code directly** — delegate all implementation via Task()
 2. **ALWAYS read persistent files** before making decisions
 3. **ALWAYS update state file** after each phase transition
 4. **ALWAYS log decisions** to orchestrator-log.md
-5. **1 sprint = 1 team** — `TeamCreate(team_name="sprint-{N}")`, `TeamDelete` on sprint completion
+5. **Use Task() for all delegation** — no TeamCreate/TeamDelete/SendMessage needed
 6. **Pass feedback verbatim** — when DoD fails, pass the exact failure messages to the implementor
 7. **Use bare names for subagent_type** — `"test-reviewer"` not `"sprint-loop:test-reviewer"`

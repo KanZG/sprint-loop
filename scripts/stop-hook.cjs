@@ -43,12 +43,13 @@ function buildReviewingInstructions(sprint, config, sprintNum, state) {
   }
 
   return `**reviewing (DoD evaluation)**:
-1. Read review_axes from config.json and launch review agents in parallel:
+1. Read review_axes from config.json and launch review agents via Task() in parallel:
 ${axisLines}${reviewingStatus}
+   Launch each as: Task(subagent_type="{axis_id}-reviewer", mode="acceptEdits", prompt="...")
 2. Output results to .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json
 3. Add each completed axis ID to state's completed_review_axes
-4. **After all reviewers complete, immediately launch aggregator** (fixed step, no decision needed):
-   - aggregator consolidates individual reviews -> outputs summary-attempt-{M}.json
+4. **After all reviewers complete, launch aggregator**:
+   Task(subagent_type="review-aggregator", mode="acceptEdits", prompt="...")
 5. Orchestrator reads **only** summary-attempt-{M}.json (do not read individual reviews)
 6. All PASS -> set sub-phase to "completed" -> update state
 7. Any FAIL -> return to "implementing" with feedback`;
@@ -73,18 +74,9 @@ function buildContinuationMessage(state, config) {
 
   const remainingSeconds = pingDue ? 0 : Math.ceil((pingInterval * 1000 - (now - lastPingAt)) / 1000);
 
-  const healthCheckSection = pingDue
-    ? `## Agent Health Check
-If you receive this message with no response from launched team members,
-send a ping to all waiting members:
-  SendMessage(type="message", recipient="{member_name}", content="Continue.", summary="ping")`
-    : `## Agent Health Check
-Waiting for team member response. Next ping eligibility in ~${remainingSeconds} seconds.
-Do NOT send pings or take any action — just end your turn and wait.`;
-
   const message = `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
-You are the sprint-loop **orchestrator**. Do NOT write code yourself — delegate everything to AgentTeam.
+You are the sprint-loop **orchestrator**. Do NOT write code yourself — delegate everything via Task().
 
 ## Current State
 Read the current state file and determine the next action:
@@ -103,14 +95,13 @@ Read the current state file and determine the next action:
 ### Actions by Sub-phase:
 
 **implementing (in progress)**:
-1. Create implementation team with TeamCreate (if not already created)
-2. Delegate implementation to implementor agent with spec.md + design.md
-3. Wait for completion -> update sub-phase to "reviewing"
+1. Launch implementor via Task(subagent_type="general-purpose", mode="acceptEdits", prompt="{spec + design}")
+2. When Task() returns, update sub-phase to "reviewing"
 
 ${reviewingSection}
 
 **planning (generating plan — rolling mode only)**:
-1. Launch planner agent within the sprint team
+1. Launch planner via Task(subagent_type="general-purpose", mode="acceptEdits")
 2. Generate detailed plans (spec.md / design.md / dod.md) for the next batch of sprints
 3. After completion, read planning-result.md and update state.planned_through_sprint
 4. Transition to implementing sub-phase
@@ -133,9 +124,7 @@ ${state.resume_mode ? `
 - Always read persistent files before making decisions
 - Always write execution results to persistent files
 - Update state file (sprint-loop-state.json) at each step
-- Shut down teams after work is complete
-
-${healthCheckSection}`;
+- Use Task() for all agent delegation — no TeamCreate needed`;
 
   return { message, pingDue };
 }

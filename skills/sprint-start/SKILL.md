@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /sprint-start — Start Autonomous Execution
 
-You are the sprint-loop **orchestrator**. You never write code yourself; all work is delegated to sub-agents via AgentTeam (TeamCreate / Task).
+You are the sprint-loop **orchestrator**. You never write code yourself; all work is delegated to sub-agents via Task().
 
 ## Precondition Checks
 
@@ -76,38 +76,22 @@ Run `/sprint-plan` to create a plan first.
 
 ## Sprint Execution Workflow
 
-### Team Design: 1 Sprint = 1 Team
+### Agent Dispatch Pattern
 
-Create **one team** per sprint, managing the implementor and reviewers within the same team.
-No need to recreate teams between phases (impl to review).
+All agents are dispatched via **Task()** (SubAgent). No TeamCreate/TeamDelete is used.
+Each Task() call is independent — the agent runs, returns a result, and terminates.
 
 ```
-TeamCreate(team_name="sprint-{N}")
-  ├── implementor (launched in Phase A, shutdown on completion)
-  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
-  └── aggregator (launched in Phase B, shutdown on completion)
-On sprint completion: TeamDelete to release all at once
-```
-
-**Additional members by planning_strategy:**
-
-For full-adaptive:
-```
-TeamCreate(team_name="sprint-{N}")
-  ├── plan-validator (validate → shutdown)      ← Pre-Phase
-  ├── implementor (launched in Phase A, shutdown on completion)
-  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
-  └── aggregator (launched in Phase B, shutdown on completion)
+Orchestrator
+  ├── Task(implementor)     — Phase A: run once, get result
+  ├── Task(reviewer) x N    — Phase B: run in parallel, each returns result
+  └── Task(aggregator)      — Phase B: run once after reviewers complete
 ```
 
-For rolling (when plan generation is needed):
-```
-TeamCreate(team_name="sprint-{N}")
-  ├── planner (generate plan → shutdown)        ← Pre-Phase
-  ├── implementor (launched in Phase A, shutdown on completion)
-  ├── {axis_id}-reviewer x N (launched in Phase B, shutdown on completion)
-  └── aggregator (launched in Phase B, shutdown on completion)
-```
+Benefits:
+- No lifecycle management (no shutdown_request, no TeamDelete)
+- Compaction-resilient (no persistent team state to get out of sync)
+- No "Already leading team" errors
 
 ### Pre-Phase: Plan Validation / Inline Planning (by planning_strategy)
 
@@ -121,11 +105,9 @@ No additional steps. Proceed directly to Phase A.
 
 Validate plan consistency before each sprint starts:
 
-1. Launch "plan-validator" within the sprint team:
+1. Launch "plan-validator":
    ```
    Task(
-     team_name="sprint-{N}",
-     name="plan-validator",
      subagent_type="general-purpose",
      mode="acceptEdits",
      prompt="Read the following files and validate plan consistency:
@@ -144,11 +126,8 @@ Validate plan consistency before each sprint starts:
        If no discrepancies: Write 'No revision needed' in plan-revision.md."
    )
    ```
-2. Wait for plan-validator to complete:
-   - After receiving idle notification, confirm completion via TaskList
-   - Read only `plan-revision.md` (one-line check)
-3. Shutdown plan-validator
-4. Proceed to Phase A (implementing)
+2. Read `plan-revision.md` from the result
+3. Proceed to Phase A (implementing)
 
 #### For rolling
 
@@ -157,11 +136,9 @@ Generate the next batch of plans when the current sprint is near the end of the 
 Condition: `config.planning_strategy == "rolling" AND current_sprint > state.planned_through_sprint - 1`
 
 1. Set `current_subphase` to `"planning"` and update the state file
-2. Launch "planner" within the sprint team:
+2. Launch "planner":
    ```
    Task(
-     team_name="sprint-{N}",
-     name="planner",
      subagent_type="general-purpose",
      mode="acceptEdits",
      prompt="Read the following and generate detailed plans for the next {rolling_horizon} sprints:
@@ -178,13 +155,10 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
        .sprint-loop/state/planning-result.md."
    )
    ```
-3. Wait for planner to complete:
-   - After receiving idle notification, confirm completion via TaskList
-   - Read only `planning-result.md`
-4. Shutdown planner
-5. Update `state.planned_through_sprint`
-6. Set `current_subphase` back to `"implementing"`
-7. Proceed to Phase A
+3. Read `planning-result.md` from the result
+4. Update `state.planned_through_sprint`
+5. Set `current_subphase` back to `"implementing"`
+6. Proceed to Phase A
 
 ### Phase A: Implementation (implementing)
 
@@ -195,16 +169,9 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    Read: .sprint-loop/sprints/sprint-{NNN}/dod.md
    ```
 
-2. Create the sprint team (first implementation only):
-   ```
-   TeamCreate(team_name="sprint-{N}")
-   ```
-
-3. Launch the implementor agent:
+2. Launch the implementor agent:
    ```
    Task(
-     team_name="sprint-{N}",
-     name="implementor",
      subagent_type="general-purpose",
      mode="acceptEdits",
      prompt="Implement based on the following spec and design.
@@ -236,8 +203,6 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    **On retry (Attempt 2+)**, launch with previous DoD feedback included:
    ```
    Task(
-     team_name="sprint-{N}",
-     name="implementor",
      subagent_type="general-purpose",
      mode="acceptEdits",
      prompt="Fix the implementation based on the following spec and design.
@@ -271,19 +236,9 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    )
    ```
 
-4. Wait for implementation to complete:
-   - Wait for the idle notification from the teammate (implementor)
-   - After receiving the notification, confirm the implementor's task is complete via TaskList
-   - Polling via `sleep`, `ls`, or `TaskOutput` is prohibited
-   - **On no response**: If a stop-hook turn arrives without an idle notification,
-     send a ping to the implementor to prompt recovery (Rule #8)
+3. Task() returns when the implementor completes. Collect the result.
 
-5. Shutdown the implementor (keep the team):
-   ```
-   SendMessage(type="shutdown_request", recipient="implementor")
-   ```
-
-6. Update state:
+4. Update state:
    ```json
    { "current_subphase": "reviewing" }
    ```
@@ -302,13 +257,11 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 
 3. Reset `completed_review_axes` to `[]` in state
 
-4. Launch review agents for each axis in `effectiveAxes` **in parallel** within the same team:
+4. Launch review agents for each axis in `effectiveAxes` **in parallel** via Task():
 
    **Builtin axes** (`builtin: true`): Use the corresponding bare-name agent
    ```
    Task(
-     team_name="sprint-{N}",
-     name="{axis.id}-reviewer",
      subagent_type="{axis.id}-reviewer",
      mode="acceptEdits",
      prompt="Evaluate '{axis.name}' for Sprint {N}.
@@ -337,8 +290,6 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    **Custom axes** (`builtin: false`): Use `general-purpose` agent with `agent_prompt_hint`
    ```
    Task(
-     team_name="sprint-{N}",
-     name="{axis.id}-reviewer",
      subagent_type="general-purpose",
      mode="acceptEdits",
      prompt="Evaluate '{axis.name}' for Sprint {N}.
@@ -367,21 +318,12 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    > **subagent_type naming rule**: Reference project-local `.claude/agents/` agents by **bare name** (no prefix).
    > Example: `"test-reviewer"` O / `"sprint-loop:test-reviewer"` X
 
-5. Detect each reviewer's completion and update state:
-   - Wait for each reviewer's idle notification, then confirm completion via TaskList
-   - Add the completed axis.id to `state.completed_review_axes` and update sprint-loop-state.json
-   - Repeat until `completed_review_axes.length === effectiveAxes.length`
-   - Polling via `sleep`, `ls`, or `TaskOutput` is prohibited
-   - **On no response**: If a stop-hook turn arrives without an idle notification,
-     send a ping to all incomplete reviewers to prompt recovery (Rule #8)
+5. Task() calls return when complete. After launching all reviewers in parallel, collect their results.
+   - Add each completed axis.id to `state.completed_review_axes` and update sprint-loop-state.json
 
-   **If a reviewer is stuck and cannot recover (no review JSON written after ping):**
-   1. Shutdown the stuck reviewer:
-      ```
-      SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")
-      ```
-   2. Launch a new reviewer for the same axis (retry with a fresh agent)
-   3. Only if the retry also fails, the orchestrator writes an error review JSON directly:
+   **If a reviewer Task() fails (no review JSON written):**
+   1. Launch a retry Task() for the same axis (fresh agent)
+   2. Only if the retry also fails, the orchestrator writes an error review JSON directly:
       ```json
       {
         "sprint_id": {N}, "attempt": {M}, "timestamp": "{ISO}",
@@ -396,11 +338,9 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
       ```
       Then add to `completed_review_axes` and proceed
 
-6. **After all reviews complete, immediately launch the aggregator agent** (fixed step, no decision needed):
+6. **After all reviews complete, launch the aggregator agent** (fixed step, no decision needed):
    ```
    Task(
-     team_name="sprint-{N}",
-     name="aggregator",
      subagent_type="review-aggregator",
      mode="acceptEdits",
      prompt="Read all review result files and create an aggregated summary.
@@ -423,22 +363,9 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
    > Reading individual review JSONs directly would consume excessive context,
    > so the aggregator consolidates them and the orchestrator reads only the summary file.
 
-6b. Wait for the aggregator to complete:
-    - After receiving idle notification, confirm completion via TaskList
-    - **On no response**: If a stop-hook turn arrives without an idle notification,
-      send a ping to the aggregator to prompt recovery (Rule #8)
+6b. Task() returns when the aggregator completes. Collect the result.
 
-7. Shutdown all review agents and the aggregator:
-   ```
-   // Send shutdown_request to all sequentially (don't wait for each response; send all then wait)
-   SendMessage(type="shutdown_request", recipient="{axis.id}-reviewer")  // each reviewer
-   SendMessage(type="shutdown_request", recipient="aggregator")
-   ```
-
-   > **API constraint**: `shutdown_request` can only be sent individually (no broadcast).
-   > `TeamDelete` fails if active members remain, so execute it only after all members have shut down.
-
-8. **The orchestrator reads only `summary-attempt-{M}.json`** (not individual reviews)
+7. **The orchestrator reads only `summary-attempt-{M}.json`** (not individual reviews)
 
 ### Review Result File Naming Convention
 
@@ -462,31 +389,21 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 5. If the next sprint belongs to a new Phase, update `current_phase` (refer to Phase sections in plan.md)
 6. Update the next sprint's status to `"in_progress"` in state's `sprints` array
 7. Reset `dod_retry_count` to 0
-8. Shutdown and delete the team:
-   ```
-   TeamDelete  // Release the entire sprint-{N} team
-   ```
-9. If there is a next sprint -> proceed to Phase A with `current_subphase: "implementing"` (create a new team)
-10. If all sprints are complete -> set `phase: "all_complete"`, `active: false`
+8. If there is a next sprint -> proceed to Phase A with `current_subphase: "implementing"`
+9. If all sprints are complete -> set `phase: "all_complete"`, `active: false`
 
 **If any rejected:**
 1. Increment `dod_retry_count`
 2. Append `action_required` from `summary-attempt-{M}.json` to execution-log.md
 3. Set `current_subphase: "implementing"`
-4. Return to Phase A (pass feedback to implementor. Launch a new implementor **while keeping the team**)
+4. Return to Phase A (pass feedback to implementor via a new Task())
 
 ## Orchestrator Rules
 
-1. **Never write code yourself** — everything goes through Task/SendMessage
+1. **Never write code yourself** — everything goes through Task()
 2. **Always update persistent files** — update sprint-loop-state.json on every state transition
 3. **Log decisions** — append reasoning to .sprint-loop/logs/orchestrator-log.md
-4. **1 sprint = 1 team** — create team with `TeamCreate(team_name="sprint-{N}")`, release with `TeamDelete` on sprint completion
+4. **Use Task() for all delegation** — no TeamCreate/TeamDelete/SendMessage needed
 5. **Be specific with feedback** — on rejection, pass the `action_required` content verbatim to the implementor
 6. **Use bare names for subagent_type** — `"test-reviewer"`, not `"sprint-loop:test-reviewer"`
-7. **Wait using TaskList** — polling via `sleep`, `ls`, or `TaskOutput` is prohibited. After receiving a teammate's idle notification, confirm completion via TaskList then proceed
-8. **Agent health check** — If a stop-hook turn arrives with no idle notification or message from a team member after launch, send a short ping to all waiting members:
-   ```
-   SendMessage(type="message", recipient="{name}", content="Continue.", summary="ping")
-   ```
-   Let the agent resolve errors on its own. To conserve the lead's context,
-   do not request reports from agents; only prompt them to continue working.
+7. **Task() is synchronous** — each call returns when the agent completes. For parallel execution, launch multiple Task() calls in the same turn.

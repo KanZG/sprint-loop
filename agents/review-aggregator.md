@@ -2,7 +2,7 @@
 name: review-aggregator
 description: Sprint-Loop review aggregator - collects individual reviews into summary
 tools: Read, Write, Glob
-model: inherit
+model: haiku
 ---
 
 # Review Aggregator Agent

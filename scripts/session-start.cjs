@@ -72,7 +72,7 @@ function buildRestorationContext(state, config) {
       lines.push('');
     }
 
-    lines.push('Delegate all work to child agents via AgentTeam (TeamCreate / Task).');
+    lines.push('Delegate all work to child agents via Task().');
   } else if (phase === 'planned') {
     lines.push('Sprint planning is complete. Run `/sprint-start` to begin execution.');
   } else if (phase === 'all_complete') {

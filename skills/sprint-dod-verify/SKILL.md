@@ -184,11 +184,11 @@ Launch `general-purpose` agents in parallel according to the pass count (N) conf
 
 ```
 // Example for N=3:
-Task(subagent_type="general-purpose", prompt="{detection prompt}", description="DoD verification pass 1")
+Task(subagent_type="general-purpose", model="sonnet", prompt="{detection prompt}", description="DoD verification pass 1")
   -> output: .sprint-loop/state/dod-verify-pass-1.md
-Task(subagent_type="general-purpose", prompt="{detection prompt}", description="DoD verification pass 2")
+Task(subagent_type="general-purpose", model="sonnet", prompt="{detection prompt}", description="DoD verification pass 2")
   -> output: .sprint-loop/state/dod-verify-pass-2.md
-Task(subagent_type="general-purpose", prompt="{detection prompt}", description="DoD verification pass 3")
+Task(subagent_type="general-purpose", model="sonnet", prompt="{detection prompt}", description="DoD verification pass 3")
   -> output: .sprint-loop/state/dod-verify-pass-3.md
 ```
 
