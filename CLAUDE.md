@@ -54,6 +54,17 @@ All critical information is persisted as files under `.sprint-loop/`.
 The stop hook's continuation message points to persistent file paths, so
 correct state recovery is possible even if context is lost through compaction.
 
+#### CLAUDE.md Marker
+
+During planning (`/sprint-plan`, `/sprint-replan`), orchestrator rules are injected into the
+workspace's CLAUDE.md wrapped in `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` markers.
+This content persists in the system prompt and survives compaction, ensuring the orchestrator
+always knows to delegate via Task() and how to launch custom DoD review axes.
+
+- Written by: `/sprint-plan`, `/sprint-replan`, `/sprint-fix` (if config changed)
+- Verified by: `/sprint-start`, `/sprint-resume`
+- Removed by: `/sprint-cancel`
+
 ## File Structure
 
 ```

@@ -179,6 +179,17 @@ Update the state file. **Branch `phase` and `resume_mode` based on the original 
 
 **Note:** Reset all sprint statuses to `"pending"`.
 
+### Step 6.5: CLAUDE.md Marker Update
+
+Update the orchestrator rules in the workspace's CLAUDE.md to reflect any changes to DoD axes.
+
+1. Read the workspace's `CLAUDE.md`
+2. Replace the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block with updated content
+3. If the block doesn't exist, append it
+4. Include all custom axis details from the (potentially updated) `config.json`
+
+> See `/sprint-plan` Step 5.5 for the marker template.
+
 ### Step 7: Completion Report
 
 **Switch the guidance message based on the original phase:**
@@ -225,3 +236,4 @@ DoD-first mode will fast-track unchanged sprints with DoD evaluation only.
 - Do NOT delete history files of completed sprints
 - Set resume_mode based on the original phase (`planned` -> `false`, otherwise -> `true`)
 - Reset all sprint statuses to "pending"
+- **Always update the CLAUDE.md marker** — the `<!-- SPRINT-LOOP:START/END -->` block must reflect current config

@@ -62,7 +62,12 @@ Run `/sprint-plan` to create a plan first.
    Use `/sprint-cancel` to stop.
    ```
 
-3. Begin the first sprint execution workflow
+3. Verify CLAUDE.md marker exists:
+   - Read the workspace's `CLAUDE.md` (create if it doesn't exist)
+   - If `<!-- SPRINT-LOOP:START -->` block is missing, generate and append it based on `config.json`
+   - This ensures orchestrator rules survive compaction via the system prompt
+
+4. Begin the first sprint execution workflow
 
 ## Counter Definitions
 
@@ -390,7 +395,9 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 6. Update the next sprint's status to `"in_progress"` in state's `sprints` array
 7. Reset `dod_retry_count` to 0
 8. If there is a next sprint -> proceed to Phase A with `current_subphase: "implementing"`
-9. If all sprints are complete -> set `phase: "all_complete"`, `active: false`
+9. If all sprints are complete:
+   - Set `phase: "all_complete"`, `active: false`
+   - Remove the CLAUDE.md marker: read the workspace's `CLAUDE.md` (if it exists), remove the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block (including the markers themselves). If CLAUDE.md becomes empty after removal, delete the file.
 
 **If any rejected:**
 1. Increment `dod_retry_count`

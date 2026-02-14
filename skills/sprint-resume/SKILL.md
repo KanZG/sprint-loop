@@ -146,6 +146,16 @@ Use `/sprint-cancel` to stop.
 
 ---
 
+### Step 1.5: CLAUDE.md Marker Verification
+
+Ensure the orchestrator rules exist in the workspace's CLAUDE.md for compaction resilience.
+
+1. Read the workspace's `CLAUDE.md` (create if it doesn't exist)
+2. If the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block is **missing**, generate and append it based on `config.json`
+3. If it already exists, no action needed
+
+> See `/sprint-plan` Step 5.5 for the marker template.
+
 ### Step 2: Automatic Resume
 
 For both modes, after state update, when the session naturally ends,

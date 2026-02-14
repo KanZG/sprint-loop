@@ -27,7 +27,13 @@ Safely stop Sprint-Loop execution.
    }
    ```
 
-4. Display confirmation message:
+4. Remove the CLAUDE.md marker:
+   - Read the workspace's `CLAUDE.md`
+   - If CLAUDE.md doesn't exist, skip this step
+   - Remove the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block (including the markers themselves)
+   - If CLAUDE.md becomes empty after removal, delete the file
+
+5. Display confirmation message:
    ```
    Sprint-Loop stopped.
 
@@ -42,6 +48,6 @@ Safely stop Sprint-Loop execution.
 
 ## Notes
 
-- Running AgentTeams do not stop automatically. They stop when the session ends because the stop hook no longer blocks.
+- Running sub-agents (Task calls) complete independently. They stop when the session ends because the stop hook no longer blocks.
 - Plan files (spec.md, design.md, dod.md) are NOT deleted.
 - To resume, manually reset the state file or replan with `/sprint-plan`.

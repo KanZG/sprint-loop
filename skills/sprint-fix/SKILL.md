@@ -141,6 +141,16 @@ Apply the approved fixes:
 - Sprint {N+1}: {minor adjustment} (if any)
 ```
 
+### Step 6.5: CLAUDE.md Marker Update (if config changed)
+
+If `config.json`'s `sprint_overrides` were modified in Step 6, update the CLAUDE.md marker:
+
+1. Read the workspace's `CLAUDE.md`
+2. Replace the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block with updated content
+3. If the block doesn't exist, append it
+
+> See `/sprint-plan` Step 5.5 for the marker template. Skip this step if config.json was not changed.
+
 ### Step 7: State Reset
 
 > **Schema Conformance**: `completed_review_axes` is an array `[]`, `phase` is `"executing"`, `current_subphase` is `"implementing"`. All `snake_case`.

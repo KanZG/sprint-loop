@@ -425,6 +425,41 @@ After writing all files, verify the following before proceeding to Step 6:
 - [ ] config.json: `review_axes` is an array where each element has `id`, `name`, `builtin`
 - [ ] config.json: All field names are `snake_case`
 
+### Step 5.5: CLAUDE.md Marker Injection
+
+Inject orchestrator rules into the workspace's CLAUDE.md for compaction resilience.
+These rules persist in the system prompt and survive context compaction.
+
+1. Read the workspace's `CLAUDE.md` (create if it doesn't exist)
+2. If a `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block already exists, **replace** it
+3. If not, **append** the block at the end
+4. Generate the block content based on `config.json`:
+
+```markdown
+<!-- SPRINT-LOOP:START -->
+## Sprint-Loop Orchestrator (auto-generated, do not edit manually)
+
+**NEVER write source code directly.** Delegate ALL work via Task():
+- Implementation: `Task(subagent_type="general-purpose", mode="acceptEdits")`
+- Builtin review: `Task(subagent_type="{axis_id}-reviewer", mode="acceptEdits")`
+- Custom review: `Task(subagent_type="general-purpose", mode="acceptEdits")` — include agent_prompt_hint
+- Aggregator: `Task(subagent_type="review-aggregator", mode="acceptEdits")`
+- No TeamCreate/SendMessage/TeamDelete
+
+{For each custom axis in config.json's review_axes where builtin is false:}
+### Custom Axis: {id} ({name})
+- Launch: Task(subagent_type="general-purpose", mode="acceptEdits")
+- Evaluation: {evaluation_method}
+- Criteria: {pass_criteria}
+- Prompt hint: {agent_prompt_hint}
+
+State: .sprint-loop/state/sprint-loop-state.json
+Config: .sprint-loop/config.json
+<!-- SPRINT-LOOP:END -->
+```
+
+> **Important**: Only generate custom axis sections if custom axes exist. If all axes are builtin, omit the "Custom Axis" sections.
+
 ### Step 6: Completion Report
 
 After all files are created, display a summary:
@@ -451,3 +486,4 @@ Run `/sprint-status` to review the plan.
 - **design.md is "How" (how to build it)** — architecture, function signatures, type definitions, algorithm rationale. Describe specific implementation approaches for each task in spec.md
 - Do not finalize a plan without user approval
 - **state.json and config.json must strictly follow the Schema Conformance Rules in CLAUDE.md** — do not independently change field names (snake_case required), types (current_sprint is a number), or structure (sprints is an array)
+- **Always write the CLAUDE.md marker** — the `<!-- SPRINT-LOOP:START/END -->` block is critical for compaction resilience

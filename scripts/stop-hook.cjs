@@ -28,7 +28,14 @@ function buildReviewingInstructions(sprint, config, sprintNum, state) {
   const completedAxes = (state && state.completed_review_axes) || [];
   const remainingAxes = effectiveAxes.filter(a => !completedAxes.includes(a.id));
 
-  const axisLines = effectiveAxes.map(a => `   - ${a.id}-reviewer: ${a.name}`).join('\n');
+  const axisLines = effectiveAxes.map(a => {
+    if (a.builtin !== false) {
+      return `   - ${a.id}-reviewer: ${a.name} [builtin -> Task(subagent_type="${a.id}-reviewer")]`;
+    } else {
+      const hint = a.agent_prompt_hint ? ` hint: "${String(a.agent_prompt_hint).substring(0, 100)}"` : '';
+      return `   - ${a.id}: ${a.name} [custom -> Task(subagent_type="general-purpose")${hint}]`;
+    }
+  }).join('\n');
 
   // Build reviewing status section
   let reviewingStatus = '';
@@ -45,7 +52,8 @@ function buildReviewingInstructions(sprint, config, sprintNum, state) {
   return `**reviewing (DoD evaluation)**:
 1. Read review_axes from config.json and launch review agents via Task() in parallel:
 ${axisLines}${reviewingStatus}
-   Launch each as: Task(subagent_type="{axis_id}-reviewer", mode="acceptEdits", prompt="...")
+   Builtin axes: Task(subagent_type="{axis_id}-reviewer", mode="acceptEdits", prompt="...")
+   Custom axes: Task(subagent_type="general-purpose", mode="acceptEdits", prompt="...include agent_prompt_hint from config.json...")
 2. Output results to .sprint-loop/sprints/sprint-${sprint}/reviews/{axis_id}-attempt-{M}.json
 3. Add each completed axis ID to state's completed_review_axes
 4. **After all reviewers complete, launch aggregator**:
@@ -109,7 +117,7 @@ ${reviewingSection}
 **completed (sprint done)**:
 1. Write sprint completion summary to result.md
 2. Transition to the next sprint (current_sprint++)
-3. If all sprints done, set phase to "all_complete"
+3. If all sprints done, set phase to "all_complete" and remove the CLAUDE.md marker (delete the <!-- SPRINT-LOOP:START/END --> block)
 4. If resume_mode is true, set next sprint's current_subphase to "reviewing" (DoD-first)
 
 ## About resume_mode (DoD-first)
