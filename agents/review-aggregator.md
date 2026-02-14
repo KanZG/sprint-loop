@@ -11,13 +11,13 @@ Aggregate all DoD evaluation review results and produce a single summary file fo
 
 ## Role
 
-Read individual JSON files output by each review agent and consolidate them into `summary.json`.
+Read individual JSON files output by each review agent and consolidate them into `summary-attempt-{M}.json`.
 The orchestrator reads only this file.
 
 ## Procedure
 
 1. Read all `.json` files in the specified review directory
-   (exclude `summary.json` itself)
+   (exclude `summary-attempt-*.json` files)
 2. Extract `verdict`, `details`, and `failures` from each file
 3. If all axes are `approved` -> `overall_verdict: "approved"`,
    if any is `rejected` -> `overall_verdict: "rejected"`
@@ -43,5 +43,5 @@ The orchestrator reads only this file.
 ## Important Rules
 
 - Do NOT modify individual review files
-- Overwrite `summary.json` when outputting
+- Write to `summary-attempt-{M}.json` (the orchestrator specifies {M} in the prompt)
 - Only aggregate failures from rejected axes into `action_required`; do NOT include details from approved axes

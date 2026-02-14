@@ -1,6 +1,6 @@
 {
   "name": "sprint-loop",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Sprint-based autonomous development loop for Claude Code. Plans sprints with DoD, executes via Task(), and auto-transitions on approval.",
   "author": {
     "name": "KanZG",

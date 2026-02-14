@@ -181,7 +181,8 @@ async function main() {
     const state = readState(projectDir);
 
     // Run safety checks first (highest priority)
-    const safetyResult = runSafetyChecks({ state, sessionId, stopReason });
+    const config = readConfig(projectDir);
+    const safetyResult = runSafetyChecks({ state, sessionId, stopReason, config });
 
     if (safetyResult.allow) {
       // If safety check says to mark as failed, update state
@@ -206,7 +207,6 @@ async function main() {
     }
 
     // Block the stop — build continuation message, throttle idle cycles, protect iteration counter
-    const config = readConfig(projectDir);
     const displayIterations = (state.total_iterations || 0) + 1;
     const { message, pingDue } = buildContinuationMessage({
       ...state,
@@ -215,7 +215,9 @@ async function main() {
 
     // Throttle idle cycles: sleep when ping is not due to slow down the loop
     if (!pingDue) {
-      const sleepSeconds = (config && config.throttle_sleep_seconds) || 60;
+      const HOOK_TIMEOUT = 90; // Must match hooks.json timeout
+      const MAX_SLEEP = HOOK_TIMEOUT - 10; // Leave buffer for post-sleep processing
+      const sleepSeconds = Math.min((config && config.throttle_sleep_seconds) || 60, MAX_SLEEP);
       await new Promise(resolve => setTimeout(resolve, sleepSeconds * 1000));
     }
 

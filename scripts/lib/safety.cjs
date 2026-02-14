@@ -57,8 +57,8 @@ function isSessionMatch(state, currentSessionId) {
  * @param {object} state
  * @returns {boolean}
  */
-function isMaxIterationsReached(state) {
-  const max = state.max_total_iterations || DEFAULT_MAX_ITERATIONS;
+function isMaxIterationsReached(state, config) {
+  const max = (config && config.max_total_iterations) || state.max_total_iterations || DEFAULT_MAX_ITERATIONS;
   return (state.total_iterations || 0) >= max;
 }
 
@@ -67,8 +67,8 @@ function isMaxIterationsReached(state) {
  * @param {object} state
  * @returns {boolean}
  */
-function isMaxDodRetriesReached(state) {
-  const max = state.max_dod_retries || DEFAULT_MAX_DOD_RETRIES;
+function isMaxDodRetriesReached(state, config) {
+  const max = (config && config.max_dod_retries) || state.max_dod_retries || DEFAULT_MAX_DOD_RETRIES;
   return (state.dod_retry_count || 0) >= max;
 }
 
@@ -83,7 +83,7 @@ function isMaxDodRetriesReached(state) {
  * @param {string} params.stopReason
  * @returns {{ allow: boolean, reason?: string, failState?: string }}
  */
-function runSafetyChecks({ state, sessionId, stopReason }) {
+function runSafetyChecks({ state, sessionId, stopReason, config }) {
   // 1. Context limit — always allow (prevent deadlock)
   if (isContextLimitStop(stopReason)) {
     return { allow: true, reason: 'context_limit' };
@@ -115,12 +115,12 @@ function runSafetyChecks({ state, sessionId, stopReason }) {
   }
 
   // 7. Max total iterations
-  if (isMaxIterationsReached(state)) {
+  if (isMaxIterationsReached(state, config)) {
     return { allow: true, reason: 'max_iterations', failState: 'failed' };
   }
 
   // 8. Max DoD retries for current sprint
-  if (isMaxDodRetriesReached(state)) {
+  if (isMaxDodRetriesReached(state, config)) {
     return { allow: true, reason: 'max_dod_retries', failState: 'failed' };
   }
 
