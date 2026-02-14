@@ -85,6 +85,8 @@ function buildContinuationMessage(state, config) {
   const message = `[SPRINT-LOOP Iteration ${iteration}/${max} | Sub-phase: ${subphase} | DoD retries: ${dodRetries}/${maxDodRetries}]
 
 You are the sprint-loop **orchestrator**. Do NOT write code yourself — delegate everything via Task().
+Do NOT read or analyze project source code. You may ONLY read files under .sprint-loop/.
+Bug investigation and root cause analysis are the implementor's responsibility.
 
 ## Current State
 Read the current state file and determine the next action:
@@ -103,8 +105,11 @@ Read the current state file and determine the next action:
 ### Actions by Sub-phase:
 
 **implementing (in progress)**:
-1. Launch implementor via Task(subagent_type="general-purpose", mode="acceptEdits", prompt="{spec + design}")
-2. When Task() returns, update sub-phase to "reviewing"
+1. Read spec.md, design.md, dod.md for this sprint (these are under .sprint-loop/)
+2. If dod_retry_count > 0 (retry): also read the latest summary-attempt-{M}.json and pass its action_required verbatim in the prompt
+3. Launch implementor via Task(subagent_type="general-purpose", mode="acceptEdits", prompt="{spec + design + action_required if retry}")
+   - On retry, the implementor is responsible for root cause analysis and fixing — do NOT investigate the bug yourself
+4. When Task() returns, update sub-phase to "reviewing"
 
 ${reviewingSection}
 
@@ -132,7 +137,9 @@ ${state.resume_mode ? `
 - Always read persistent files before making decisions
 - Always write execution results to persistent files
 - Update state file (sprint-loop-state.json) at each step
-- Use Task() for all agent delegation — no TeamCreate needed`;
+- Use Task() for all agent delegation — no TeamCreate needed
+- Do NOT read project source code — only read .sprint-loop/ files
+- On DoD rejection, pass action_required verbatim to implementor without analysis`;
 
   return { message, pingDue };
 }

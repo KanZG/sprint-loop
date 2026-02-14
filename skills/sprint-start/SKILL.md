@@ -221,7 +221,8 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 
      ## Implementation Rules
      - Implement design.md faithfully.
-     - Address all issues from the feedback above.
+     - Investigate the root cause of each failure listed above, then fix the implementation.
+     - You are responsible for reading source code, diagnosing issues, and determining the correct fix.
 
      On completion, **append** an implementation summary to:
      .sprint-loop/sprints/sprint-{NNN}/execution-log.md
@@ -415,3 +416,4 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 5. **Be specific with feedback** — on rejection, pass the `action_required` content verbatim to the implementor
 6. **Use bare names for subagent_type** — `"test-reviewer"`, not `"sprint-loop:test-reviewer"`
 7. **Task() is synchronous** — each call returns when the agent completes. For parallel execution, launch multiple Task() calls in the same turn.
+8. **Do not analyze source code** — the orchestrator reads ONLY `.sprint-loop/` persistent files (state, config, spec, design, dod, execution-log, reviews). Do NOT read project source code to investigate bugs. Root cause analysis is the implementor's responsibility.

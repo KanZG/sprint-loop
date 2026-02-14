@@ -450,6 +450,10 @@ These rules persist in the system prompt and survive context compaction.
 - Custom review: `Task(subagent_type="general-purpose", mode="acceptEdits")` — include agent_prompt_hint
 - Aggregator: `Task(subagent_type="review-aggregator", mode="acceptEdits")`
 - No TeamCreate/SendMessage/TeamDelete
+
+**Orchestrator reads ONLY `.sprint-loop/` files** (state, config, spec, design, dod, execution-log, reviews).
+Do NOT read or analyze project source code. Bug investigation and root cause analysis are the implementor's responsibility.
+On DoD rejection, pass `action_required` verbatim to the implementor — do not enrich or interpret it.
 <!-- END LITERAL -->
 
 {For each custom axis in config.json's review_axes where builtin is false:}

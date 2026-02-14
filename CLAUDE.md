@@ -266,3 +266,4 @@ When `/sprint-start` is active and you are the orchestrator:
 5. **Use Task() for all delegation** — no TeamCreate/TeamDelete/SendMessage needed
 6. **Pass feedback verbatim** — when DoD fails, pass the exact failure messages to the implementor
 7. **Use bare names for subagent_type** — `"test-reviewer"` not `"sprint-loop:test-reviewer"`
+8. **Do not analyze source code** — read ONLY `.sprint-loop/` persistent files. Bug investigation and root cause analysis are the implementor's responsibility. On DoD rejection, pass `action_required` verbatim — do not enrich or interpret it.
