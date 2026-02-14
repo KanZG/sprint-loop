@@ -435,16 +435,22 @@ These rules persist in the system prompt and survive context compaction.
 3. If not, **append** the block at the end
 4. Generate the block content based on `config.json`:
 
+> **CRITICAL**: The following template contains **LITERAL sections** (marked) that MUST be included verbatim.
+> Do NOT replace delegation rules with project-specific information.
+> Do NOT omit any LITERAL section. Custom/dynamic content goes ONLY in the designated sections.
+
 ```markdown
 <!-- SPRINT-LOOP:START -->
 ## Sprint-Loop Orchestrator (auto-generated, do not edit manually)
 
+<!-- LITERAL — include verbatim, do not modify or omit -->
 **NEVER write source code directly.** Delegate ALL work via Task():
 - Implementation: `Task(subagent_type="general-purpose", mode="acceptEdits")`
 - Builtin review: `Task(subagent_type="{axis_id}-reviewer", mode="acceptEdits")`
 - Custom review: `Task(subagent_type="general-purpose", mode="acceptEdits")` — include agent_prompt_hint
 - Aggregator: `Task(subagent_type="review-aggregator", mode="acceptEdits")`
 - No TeamCreate/SendMessage/TeamDelete
+<!-- END LITERAL -->
 
 {For each custom axis in config.json's review_axes where builtin is false:}
 ### Custom Axis: {id} ({name})

@@ -187,6 +187,7 @@ Update the orchestrator rules in the workspace's CLAUDE.md to reflect any change
 2. Replace the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block with updated content
 3. If the block doesn't exist, append it
 4. Include all custom axis details from the (potentially updated) `config.json`
+5. The marker MUST include the Task() delegation rules verbatim — these are the LITERAL sections in the template. Do NOT replace them with project-specific information (build commands, directory structure, etc.)
 
 > See `/sprint-plan` Step 5.5 for the marker template.
 

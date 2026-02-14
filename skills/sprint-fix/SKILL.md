@@ -148,6 +148,7 @@ If `config.json`'s `sprint_overrides` were modified in Step 6, update the CLAUDE
 1. Read the workspace's `CLAUDE.md`
 2. Replace the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block with updated content
 3. If the block doesn't exist, append it
+4. The marker MUST include the Task() delegation rules verbatim (see `/sprint-plan` Step 5.5 template). Do NOT substitute with project-specific information.
 
 > See `/sprint-plan` Step 5.5 for the marker template. Skip this step if config.json was not changed.
 

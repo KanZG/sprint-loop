@@ -152,6 +152,7 @@ Ensure the orchestrator rules exist in the workspace's CLAUDE.md for compaction 
 
 1. Read the workspace's `CLAUDE.md` (create if it doesn't exist)
 2. If the `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block is **missing**, generate and append it based on `config.json`
+   - The marker MUST include the Task() delegation rules verbatim (see `/sprint-plan` Step 5.5 template). Do NOT substitute with project-specific information.
 3. If it already exists, no action needed
 
 > See `/sprint-plan` Step 5.5 for the marker template.

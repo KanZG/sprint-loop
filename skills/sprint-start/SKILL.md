@@ -65,6 +65,7 @@ Run `/sprint-plan` to create a plan first.
 3. Verify CLAUDE.md marker exists:
    - Read the workspace's `CLAUDE.md` (create if it doesn't exist)
    - If `<!-- SPRINT-LOOP:START -->` block is missing, generate and append it based on `config.json`
+   - The marker MUST include the Task() delegation rules verbatim (see `/sprint-plan` Step 5.5 template). Do NOT substitute with project-specific information.
    - This ensures orchestrator rules survive compaction via the system prompt
 
 4. Begin the first sprint execution workflow
