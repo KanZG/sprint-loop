@@ -40,6 +40,7 @@ Child Agents (Executors) — launched via Task(), independent of each other
   |-- test-reviewer: Test validation (test-reviewer)
   |-- spec-reviewer: Specification compliance validation (spec-reviewer)
   |-- quality-reviewer: Quality validation (quality-reviewer)
+  |-- visual-reviewer: Visual verification via capture and analysis (visual-reviewer)
   +-- aggregator: Review aggregation (review-aggregator)
 ```
 
@@ -142,6 +143,7 @@ Sprint N Start
 | plan-validator | opus (inherit) | Architecture-level validation |
 | spec-reviewer | opus (inherit) | Deep spec comprehension for quality gate |
 | test-reviewer | opus (inherit) | Context-aware failure assessment |
+| visual-reviewer | opus (inherit) | Multimodal visual judgment requires strong reasoning |
 | custom axis reviewers | opus (inherit) | May involve image recognition or subjective judgment |
 | quality-reviewer | sonnet | Binary build/lint/type results |
 | dod-verify detection | sonnet | Pattern matching and cross-referencing |

@@ -102,37 +102,84 @@ Before sprint breakdown, determine the DoD (Definition of Done) evaluation axes 
 
 | Project Type | Recommended Additional Axes |
 |-------------|---------------------------|
-| Game development | `visual` (screenshot validation), `perf` (FPS/memory), `gameplay-log` (runtime log analysis) |
-| Web frontend | `visual` (UI screenshot comparison), `a11y` (accessibility), `responsive` (responsive design) |
+| Game development | `visual` (screenshot validation, **builtin**), `perf` (FPS/memory), `gameplay-log` (runtime log analysis) |
+| Web frontend | `visual` (UI screenshot comparison, **builtin**), `a11y` (accessibility), `responsive` (responsive design) |
 | API / Backend | `api-contract` (OpenAPI/schema compliance), `perf` (response time), `security` (vulnerability check) |
 | Data pipeline | `data-accuracy` (output accuracy), `perf` (processing time), `idempotency` (idempotency) |
 | CLI tool | `ux` (help display, error messages), `perf` (startup time) |
+
+**The `visual` axis is builtin** — it has a dedicated `visual-reviewer` agent that captures actual visual output and analyzes it. Unlike custom axes, visual does NOT fall back to static code analysis; capture failure = rejected.
 
 Ask the user:
 
 1. "Would you like to add evaluation axes beyond the default 3 (test/spec/quality)?"
    - Present candidates based on project type
    - Accept free-form input as well
-2. For each custom axis:
-   - **Evaluation method**: How to determine pass/fail (command execution, file verification, screenshot comparison, log analysis, etc.)
-   - **Pass criteria**: Specific thresholds or conditions
-   - **Required tools/commands**: External tools needed for evaluation
-   - **Agent capabilities**: What capabilities to grant the review agent
-     - `read_only` — File reading only (static analysis, code review)
-     - `bash` — Bash command execution (build, test, CLI execution)
-     - `browser` — Browser operation (screenshots, UI verification)
 
-Record each custom axis in `config.json`:
+#### visual axis setup (builtin)
+
+When the user selects the `visual` axis, configure it as `builtin: true` with a `capture` field specifying the capture strategy:
+
+**3 capture strategies:**
+
+| Strategy | Method | Use Cases |
+|----------|--------|-----------|
+| `file` | Read image files via Read tool (multimodal) | Image generators, charts, PDF renderers |
+| `browser` | Navigate + screenshot via claude-in-chrome | Web apps, HTML files, SVG |
+| `command` | Run a command that produces image files | Unity/UE, desktop apps, custom pipelines |
+
+Ask the user which capture strategy matches their project, then collect strategy-specific settings:
+
+- **`file`**: `output_pattern` (required) — Glob pattern for output images (e.g., `output/*.png`)
+- **`browser`**: `url` (required), `start_command` (optional — e.g., `npm run dev`), `wait_ms` (optional, default: 3000)
+- **`command`**: `command` (required), `output_path` (required), `wait_ms` (optional, default: 5000)
+
+Record the visual axis in `config.json`:
 ```json
 {
   "id": "visual",
   "name": "Visual Validation",
-  "description": "Screenshot comparison against reference images",
-  "evaluation_method": "Take screenshot after build, compare with reference in docs/references/",
-  "pass_criteria": "No visible regressions in UI layout and colors",
-  "tools": ["screenshot tool", "image diff"],
-  "agent_capabilities": "browser",
-  "agent_prompt_hint": "Take a screenshot of the running application and compare it against reference images in docs/references/. Report any visual differences."
+  "builtin": true,
+  "capture": {
+    "strategy": "browser",
+    "url": "http://localhost:3000/",
+    "start_command": "npm run dev",
+    "wait_ms": 3000
+  }
+}
+```
+
+Also guide the user to include a `## 視覚検証 (Visual Verification)` section in each sprint's `design.md`:
+```markdown
+## 視覚検証 (Visual Verification)
+
+### 検証項目
+- [ ] Main view renders correctly
+- [ ] 6 block types are visually distinguishable
+- [ ] Lighting is applied
+- [ ] UI overlay is positioned correctly
+
+### 参考情報
+- Expected layout: [natural language description]
+- Colors: [description of key colors]
+```
+
+#### Custom axis setup (non-builtin)
+
+2. For each custom (non-builtin) axis:
+   - **Evaluation method**: How to determine pass/fail (command execution, file verification, log analysis, etc.)
+   - **Pass criteria**: Specific thresholds or conditions
+   - **Required tools/commands**: External tools needed for evaluation
+
+Record each custom axis in `config.json`:
+```json
+{
+  "id": "perf",
+  "name": "Performance",
+  "builtin": false,
+  "evaluation_method": "Run benchmark suite and check metrics",
+  "pass_criteria": "All benchmarks within threshold",
+  "agent_prompt_hint": "Run the benchmark suite and verify all metrics are within acceptable thresholds."
 }
 ```
 
@@ -334,15 +381,30 @@ Each section heading must follow the format `## {axis_id}: {display name}`.
 }
 ```
 
-For custom axes, include additional fields in each entry:
+For the `visual` builtin axis, include a `capture` field:
 ```json
 {
   "id": "visual",
   "name": "Visual Validation",
+  "builtin": true,
+  "capture": {
+    "strategy": "browser",
+    "url": "http://localhost:3000/",
+    "start_command": "npm run dev",
+    "wait_ms": 3000
+  }
+}
+```
+
+For custom (non-builtin) axes, include additional fields in each entry:
+```json
+{
+  "id": "perf",
+  "name": "Performance",
   "builtin": false,
-  "evaluation_method": "Screenshot comparison against references",
-  "pass_criteria": "No visible regressions",
-  "agent_prompt_hint": "Take screenshots and compare with docs/references/"
+  "evaluation_method": "Run benchmark suite and check metrics",
+  "pass_criteria": "All benchmarks within threshold",
+  "agent_prompt_hint": "Run the benchmark suite and verify all metrics are within acceptable thresholds."
 }
 ```
 `agent_prompt_hint` is injected into the review agent's prompt at launch.
