@@ -213,6 +213,11 @@ async function main() {
       return;
     }
 
+    // Claim session ownership on first block (null -> real platform session ID)
+    if (!state.session_id && sessionId) {
+      updateState(projectDir, { session_id: sessionId });
+    }
+
     // Block the stop — build continuation message, throttle idle cycles, protect iteration counter
     const displayIterations = (state.total_iterations || 0) + 1;
     const { message, pingDue } = buildContinuationMessage({

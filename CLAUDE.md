@@ -155,7 +155,7 @@ Sprint N Start
 |-------|-----------|--------|
 | Context limit | stop_reason contains "context" | allow (prevent deadlock) |
 | User abort | stop_reason contains "user" | allow (respect Ctrl+C) |
-| Session mismatch | session_id mismatch | allow (prevent cross-session) |
+| Session mismatch | session_id mismatch (stop hook auto-claims on first block; skills write null) | allow (prevent cross-session) |
 | Staleness | Last update > 2 hours ago | allow (prevent stuck lock) |
 | Max iterations | Reached configured limit (default 100, max 1000) | allow + failed |
 | Max DoD retries | Reached configured limit (default 5, max 10) | allow + failed |
@@ -205,7 +205,7 @@ Do NOT use the old `review-001.json` format.
 {
   "schema_version": 1,
   "active": false,
-  "session_id": null,
+  "session_id": "null (skills write null; stop hook claims real platform session ID on first block)",
   "phase": "planned | executing | fixing | replanning | replanned | all_complete | failed",
   "current_sprint": 1,
   "total_sprints": "N",

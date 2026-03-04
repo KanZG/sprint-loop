@@ -1,7 +1,7 @@
 'use strict';
 
 const { readStdinJson } = require('./lib/stdin.cjs');
-const { readState, readConfig } = require('./lib/state.cjs');
+const { readState, readConfig, updateState } = require('./lib/state.cjs');
 
 /**
  * Build context message for active sprint-loop sessions.
@@ -137,6 +137,11 @@ async function main() {
     let context = '';
 
     if (state.active && state.phase === 'executing') {
+      // Recover session ownership: overwrite stale session_id from dead session
+      const sessionId = data.session_id || data.sessionId || '';
+      if (state.session_id && sessionId && state.session_id !== sessionId) {
+        updateState(projectDir, { session_id: sessionId });
+      }
       context = buildRestorationContext(state, config);
     } else if (state.phase === 'planned') {
       context = buildPlannedContext(state);

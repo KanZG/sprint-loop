@@ -58,7 +58,7 @@ Re-evaluate all sprints from Sprint 1, but skip implementation if DoD passes.
 ```json
 {
   "active": true,
-  "session_id": "{new UUID — generate with crypto.randomUUID()}",
+  "session_id": null,
   "phase": "executing",
   "current_sprint": 1,
   "current_subphase": "reviewing",
@@ -119,7 +119,7 @@ Resume directly from the current sprint and state.
 ```json
 {
   "active": true,
-  "session_id": "{new UUID — generate with crypto.randomUUID()}",
+  "session_id": null,
   "phase": "executing",
   "current_subphase": "{'implementing' if fixing, otherwise keep current value}",
   "resume_mode": false,
@@ -169,4 +169,4 @@ re-grounding the orchestrator via the continuation message.
 - Display appropriate guidance messages for error cases
 - ALWAYS set resume_mode to true in DoD-first mode
 - Preserve existing current_sprint and total_iterations in latest-state continuation mode
-- ALWAYS generate a new session_id (for cross-session protection)
+- ALWAYS set session_id to null (the stop hook claims the real platform session ID automatically)

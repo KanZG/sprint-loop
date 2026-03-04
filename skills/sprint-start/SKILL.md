@@ -37,7 +37,7 @@ Run `/sprint-plan` to create a plan first.
    ```json
    {
      "active": true,
-     "session_id": "{current session ID — generate with crypto.randomUUID()}",
+     "session_id": null,
      "phase": "executing",
      "current_sprint": 1,
      "current_subphase": "implementing",
