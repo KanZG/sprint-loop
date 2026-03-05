@@ -21,24 +21,39 @@ Health check skill that detects and fixes schema non-compliance in sprint-loop p
 **When issues exist:**
 
 ~~~markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
 
-**Note: The following is NOT project code implementation. It is `.sprint-loop/` file corrections.**
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-check` skill facilitator. Your ONLY remaining task is applying `.sprint-loop/` file corrections.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+
+### Corrections to Apply
 
 1. `.sprint-loop/config.json` — {correction details}
 2. `.sprint-loop/state/sprint-loop-state.json` — {correction details}
 3. Display completion report
+
+**REMINDER: Apply `.sprint-loop/` file corrections ONLY. Do NOT create project source code.**
 ~~~
 
 **When no issues exist:**
 
 ~~~markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
+
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-check` skill facilitator.**
 
 No issues detected. No corrections needed.
 ~~~
 
-4. After ExitPlanMode approval, execute corrections **following the "Post-Approval Actions" section in the plan file**
+4. After ExitPlanMode approval, execute corrections **following the "Instructions After ExitPlanMode" section in the plan file**
 5. **Do not touch project source code** — only modify files under `.sprint-loop/`
 
 ## Precondition Checks
@@ -171,16 +186,27 @@ Write all check results to the plan file in the following format:
 2. [C-4] `sprints/sprint-002/dod.md` missing `visual` axis section -> Fix with `/sprint-fix`
 3. ...
 
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
 
-**Note: The following is NOT project code implementation. It is `.sprint-loop/` file corrections.**
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-check` skill facilitator. Your ONLY remaining task is applying `.sprint-loop/` file corrections.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+
+### Corrections to Apply
 
 1. `.sprint-loop/config.json` — {specific correction details}
 2. `.sprint-loop/state/sprint-loop-state.json` — {specific correction details}
 3. Display completion report
+
+**REMINDER: Apply `.sprint-loop/` file corrections ONLY. Do NOT create project source code.**
 ~~~
 
-**If FAIL count is 0**, write "No issues detected. No corrections needed." in the "Post-Approval Actions" section.
+**If FAIL count is 0**, write "No issues detected. No corrections needed." in the "Instructions After ExitPlanMode" section.
 
 ### Step 5: ExitPlanMode
 

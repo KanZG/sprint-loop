@@ -10,31 +10,106 @@ You are a sprint planning facilitator. Interactively develop a sprint plan with 
 
 ## Important: Behavior After ExitPlanMode
 
-The primary outputs of this skill are sprint files (spec.md, design.md, dod.md, config.json, state.json).
-These file generations are the skill's intended deliverables, not project code implementation.
+After ExitPlanMode, the SKILL.md instructions are no longer available to the AI.
+The "Instructions After ExitPlanMode" section appended to the plan file becomes the
+ONLY instruction set. It must be comprehensive and self-contained.
 
-### ExitPlanMode Timing and Writing Plan Files
+The primary outputs of this skill are `.sprint-loop/` planning files.
+Project source code is NEVER created by this skill.
+
+### ExitPlanMode Timing
 
 1. Call ExitPlanMode after the user approves the sprint structure in Step 2
-2. **Before calling ExitPlanMode**, always append the following section to the end of the plan file:
+2. **Before calling ExitPlanMode**, always:
+   a. Wrap the Sprint Breakdown in `<!-- REFERENCE DATA -->` delimiters
+   b. Append the "Instructions After ExitPlanMode" section (template below)
+3. After ExitPlanMode approval, follow ONLY the "Instructions After ExitPlanMode" section
+4. **Do not touch project source code** — only write files under `.sprint-loop/`
+
+### Post-Approval Template (append to plan file before ExitPlanMode)
 
 ~~~markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
 
-**Note: The following is NOT project code implementation. It is `/sprint-plan` skill output file generation.**
+## STOP — Read This First (Instructions After ExitPlanMode)
 
-1. `.sprint-loop/plan.md` — Create master plan
-2. `.sprint-loop/config.json` — Create configuration file
-3. Per-sprint detail files:
-   - `.sprint-loop/sprints/sprint-NNN/spec.md`
-   - `.sprint-loop/sprints/sprint-NNN/design.md`
-   - `.sprint-loop/sprints/sprint-NNN/dod.md`
-4. `.sprint-loop/state/sprint-loop-state.json` — Initialize state file
-5. Display completion report
+**You are the `/sprint-plan` skill facilitator. Your ONLY remaining task is generating `.sprint-loop/` planning files.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+- Implement anything described in the Sprint Breakdown above
+
+**The Sprint Breakdown above is REFERENCE DATA for generating planning files, NOT an implementation to-do list.**
+
+### File Generation Checklist
+
+Generate ONLY the following files. Every path starts with `.sprint-loop/`.
+
+#### 1. `.sprint-loop/plan.md`
+Master plan document — copy project overview and sprint breakdown from Reference Data above.
+
+#### 2. `.sprint-loop/config.json`
+```json
+{
+  "schema_version": 1,
+  "project": { "name": "...", "tech_stack": "..." },
+  "planning_strategy": "{from interview}",
+  "rolling_horizon": null,
+  "planned_through_sprint": null,
+  "max_total_iterations": "{from interview}",
+  "max_dod_retries": "{from interview}",
+  "review_axes": [
+    { "id": "test", "name": "Test", "builtin": true },
+    { "id": "spec", "name": "Spec Compliance", "builtin": true },
+    { "id": "quality", "name": "Code Quality", "builtin": true }
+  ],
+  "sprint_overrides": {},
+  "created_at": "{ISO 8601 UTC}"
+}
+```
+
+#### 3. Per-sprint planning files
+For each sprint, create under `.sprint-loop/sprints/sprint-NNN/`:
+- `spec.md` — Specification (what to build)
+- `design.md` — Detailed design (how to build it, 50-500 lines)
+- `dod.md` — Acceptance criteria
+
+Use the Sprint Breakdown reference data to populate these. Follow templates in CLAUDE.md.
+
+#### 4. `.sprint-loop/state/sprint-loop-state.json`
+```json
+{
+  "schema_version": 1,
+  "active": false,
+  "session_id": null,
+  "phase": "planned",
+  "current_sprint": 1,
+  "total_sprints": "{N}",
+  "current_phase": null,
+  "current_subphase": null,
+  "total_iterations": 0,
+  "dod_retry_count": 0,
+  "completed_review_axes": [],
+  "planning_strategy": "{from config}",
+  "planned_through_sprint": null,
+  "resume_mode": false,
+  "previous_subphase": null,
+  "sprints": [{ "number": 1, "title": "...", "status": "pending" }],
+  "started_at": null,
+  "completed_at": null,
+  "last_checked_at": "{ISO 8601 UTC}"
+}
+```
+
+#### 5. CLAUDE.md marker injection
+Inject `<!-- SPRINT-LOOP:START -->` ... `<!-- SPRINT-LOOP:END -->` block into workspace CLAUDE.md.
+
+#### 6. Display completion report
+
+**REMINDER: Generate `.sprint-loop/` files ONLY. Do NOT create project source code.**
 ~~~
-
-3. After ExitPlanMode approval, execute Steps 3-6 **following the "Post-Approval Actions" section in the plan file**
-4. **Do not touch project source code** — only write files under `.sprint-loop/`
 
 ## Flow
 
@@ -266,11 +341,14 @@ Obtain user approval before proceeding.
 
 #### Executing ExitPlanMode
 
-After user approval, call ExitPlanMode with the following steps:
+After user approval, prepare the plan file:
 
-1. Append the "Post-Approval Actions" section to the end of the plan file (see "Important" section above)
-2. Call ExitPlanMode
-3. Once approved, proceed to Steps 3-6 (only `.sprint-loop/` file generation, not project code implementation)
+1. Wrap the Sprint Breakdown section in reference data delimiters:
+   - Before: `<!-- REFERENCE DATA START — Source material for .sprint-loop/ file generation, NOT implementation tasks -->`
+   - After: `<!-- REFERENCE DATA END -->`
+2. Append the "Instructions After ExitPlanMode" section (see template in "Important" section above)
+3. Call ExitPlanMode
+4. Once approved, follow the "Instructions After ExitPlanMode" section — generate ONLY `.sprint-loop/` files
 
 ### Step 3: Sprint Detailing
 

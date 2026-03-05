@@ -21,26 +21,41 @@ Verify that DoD (Definition of Done) items for unexecuted sprints do not assume 
 **When issues exist:**
 
 ~~~markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
 
-**Note: The following is NOT project code implementation. It is `.sprint-loop/` DoD file corrections.**
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-dod-verify` skill facilitator. Your ONLY remaining task is applying `.sprint-loop/` DoD file corrections.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+
+### Corrections to Apply
 
 1. `.sprint-loop/sprints/sprint-{NNN}/dod.md` — {correction details}
 2. `.sprint-loop/sprints/sprint-{NNN}/spec.md` — {minor consistency fix} (only if needed)
 3. ...
 4. Run post-correction verification pass
 5. Display completion report
+
+**REMINDER: Apply `.sprint-loop/` file corrections ONLY. Do NOT create project source code.**
 ~~~
 
 **When no issues exist:**
 
 ~~~markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
+
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-dod-verify` skill facilitator.**
 
 No issues detected. No corrections needed.
 ~~~
 
-4. After ExitPlanMode approval, execute corrections **following the "Post-Approval Actions" section in the plan file**
+4. After ExitPlanMode approval, execute corrections **following the "Instructions After ExitPlanMode" section in the plan file**
 5. **Do not touch project source code** — only modify files under `.sprint-loop/`
 
 ## Detection Dimensions
@@ -297,26 +312,41 @@ INFOs are recorded in the plan file only. Switch to individual review if the use
 
 Based on the Step 6 refinement results, write the correction plan to the plan file.
 
-**Before calling ExitPlanMode**, append the "Post-Approval Actions" section to the end of the plan file:
+**Before calling ExitPlanMode**, append the "Instructions After ExitPlanMode" section to the end of the plan file:
 
 When corrections exist:
 
 ```markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
 
-**Note: The following is NOT project code implementation. It is `.sprint-loop/` DoD file corrections.**
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-dod-verify` skill facilitator. Your ONLY remaining task is applying `.sprint-loop/` DoD file corrections.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+
+### Corrections to Apply
 
 1. `.sprint-loop/sprints/sprint-{NNN}/dod.md` — {correction details}
 2. `.sprint-loop/sprints/sprint-{NNN}/dod.md` — {correction details}
 3. `.sprint-loop/sprints/sprint-{NNN}/spec.md` — {minor consistency fix} (only if needed)
 4. Run post-correction verification pass
 5. Display completion report
+
+**REMINDER: Apply `.sprint-loop/` file corrections ONLY. Do NOT create project source code.**
 ```
 
 When no corrections exist (all skipped / intentionally allowed / zero detections):
 
 ```markdown
-## Post-Approval Actions (Execute after ExitPlanMode)
+---
+
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-dod-verify` skill facilitator.**
 
 No issues detected. No corrections needed.
 ```

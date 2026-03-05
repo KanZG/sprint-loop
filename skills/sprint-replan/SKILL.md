@@ -16,21 +16,40 @@ Substantially revise the existing sprint plan, resetting to a state where re-eva
 
 1. If not in Plan Mode, **call EnterPlanMode**
 2. After the user approves the sprint structure, call ExitPlanMode
-3. **Before calling ExitPlanMode**, append the following section to the end of the plan file:
+3. **Before calling ExitPlanMode**, always:
+   a. Wrap the Sprint Breakdown in `<!-- REFERENCE DATA -->` delimiters (same as `/sprint-plan`)
+   b. Append the "Instructions After ExitPlanMode" section (template below)
 
 ~~~markdown
-## Post-Approval Actions (Execute After ExitPlanMode)
+---
 
-**Note: The following are NOT project code implementations. These are `/sprint-replan` skill output file updates.**
+## STOP — Read This First (Instructions After ExitPlanMode)
+
+**You are the `/sprint-replan` skill facilitator. Your ONLY remaining task is updating `.sprint-loop/` planning files.**
+
+### FORBIDDEN — Do NOT:
+- Create, modify, or touch any project source code files
+- Create application files (HTML, CSS, JS, Python, etc.) outside `.sprint-loop/`
+- Install packages, run build commands, or execute project code
+- Implement anything described in the Sprint Breakdown above
+
+**The Sprint Breakdown above is REFERENCE DATA for updating planning files, NOT an implementation to-do list.**
+
+### File Update Checklist
+
+Update ONLY the following files. Every path starts with `.sprint-loop/`.
 
 1. `.sprint-loop/plan.md` — Update master plan
-2. Update spec.md / design.md / dod.md for affected sprints
+2. Update `spec.md` / `design.md` / `dod.md` for affected sprints
 3. `.sprint-loop/config.json` — Update if needed
 4. `.sprint-loop/state/sprint-loop-state.json` — Update `phase` (keep `planned` if original phase was `planned`, otherwise set to `replanned`)
-5. Display completion report
+5. Update CLAUDE.md marker if config changed
+6. Display completion report
+
+**REMINDER: Update `.sprint-loop/` files ONLY. Do NOT create project source code.**
 ~~~
 
-4. After ExitPlanMode approval, **follow the "Post-Approval Actions" section in the plan file** to execute Steps 5-7
+4. After ExitPlanMode approval, **follow the "Instructions After ExitPlanMode" section in the plan file** to execute Steps 5-7
 5. **Do NOT touch project source code** — only write files under `.sprint-loop/`
 
 ## Prerequisite Check
@@ -122,7 +141,7 @@ After:
   Sprint 4: {new title} <- newly added
 ```
 
-Append the "Post-Approval Actions" section to the end of the plan file before calling ExitPlanMode (see "Important" section above).
+Append the "Instructions After ExitPlanMode" section to the end of the plan file before calling ExitPlanMode (see "Important" section above).
 
 **Call ExitPlanMode** (obtain user approval)
 
