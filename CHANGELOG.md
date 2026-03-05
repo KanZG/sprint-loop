@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.7] - 2026-03-05
+
+### Fixed
+- Add config validation and robust capture config detection for visual review axis (2474670)
+
 ## [0.2.6] - 2026-03-05
 
 ### Fixed
