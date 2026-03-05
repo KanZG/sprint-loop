@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.8] - 2026-03-05
+
+### Fixed
+- Prevent orchestrator from overriding reviewer verdicts — add verdict integrity rules across all review layers (89ae7b2)
+
 ## [0.2.7] - 2026-03-05
 
 ### Fixed
