@@ -56,13 +56,25 @@ Run a command that generates image files, then read them.
 
 ## Evaluation Procedure
 
+0. **Pre-check: Capture config exists**
+   - Read `config.json`
+   - Look for capture config in this order:
+     1. `config.review_axes` array → find element with `id: "visual"` → read its `capture` object (standard)
+     2. If not found, check `config.visual` (legacy/non-standard) → normalize field names (`waitMs` → `wait_ms`, `outputDir` → `output_path`)
+   - If no capture config found in either location → `verdict: "rejected"` immediately with details:
+     `"No capture configuration found. Add a visual axis to review_axes with a capture sub-object in config.json. See CLAUDE.md for schema."` → **STOP** (do not proceed to any analysis step)
+
 1. **Read configuration**
-   - Read `config.json` to get the `capture` settings for the visual axis
+   - Use the capture config found in Step 0
    - Read `design.md` and look for the `## 視覚検証` (Visual Verification) section
    - If no visual verification section exists, check dod.md for visual items
 
 2. **Execute capture** (based on strategy above)
-   - On capture failure: immediately write rejected result with failure details and stop
+   - On capture failure: immediately write rejected result with details including:
+     - The capture strategy used (e.g., `"browser"`, `"file"`, `"command"`)
+     - The specific step that failed (e.g., `"navigate to URL"`, `"glob for output files"`)
+     - A fix hint (e.g., `"Ensure the dev server is running"`, `"Check output_pattern in config"`)
+   - Then **STOP** — do not proceed to analysis
 
 3. **Analyze captured output**
    - Compare the captured visual output against each verification item

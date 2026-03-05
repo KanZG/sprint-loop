@@ -436,6 +436,10 @@ Each section heading must follow the format `## {axis_id}: {display name}`.
 > Program code (.cjs) parses these directly, so custom naming (camelCase) or data structures (making sprints an object, etc.) are prohibited.
 > See "Schema Conformance Rules" in CLAUDE.md for details.
 
+> **CRITICAL**: The `visual` axis MUST be inside the `review_axes` array with a `capture` sub-object.
+> Do NOT create a separate top-level `visual` key. Do NOT create a `dod.axes` key.
+> The stop-hook reads ONLY `review_axes` — any other location is silently ignored and visual review will not work.
+
 #### config.json
 ```json
 {
@@ -563,6 +567,8 @@ After writing all files, verify the following before proceeding to Step 6:
 - [ ] config.json: `max_total_iterations` and `max_dod_retries` exist
 - [ ] config.json: `planning_strategy` exists
 - [ ] config.json: `review_axes` is an array where each element has `id`, `name`, `builtin`
+- [ ] config.json: If visual axis is used, it exists in `review_axes` with `capture` sub-object (`capture.strategy` is `"file"` | `"browser"` | `"command"`)
+- [ ] config.json: No top-level `visual` or `dod` keys exist (non-standard — stop-hook ignores them)
 - [ ] config.json: All field names are `snake_case`
 
 ### Step 5.5: CLAUDE.md Marker Injection

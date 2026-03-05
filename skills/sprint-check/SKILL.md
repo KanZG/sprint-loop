@@ -105,6 +105,7 @@ Run the following 4 categories of checks. For each check item, determine PASS / 
 | A-3 | `max_total_iterations` exists (`max_iterations` ❌, `maxIterations` ❌) | Auto-fix: convert from alias, or add default `100` |
 | A-4 | `max_dod_retries` exists (`maxDodRetries` ❌) | Auto-fix: convert from camelCase, or add default `5` |
 | A-5 | `review_axes` is an array with `{id, name, builtin}` in each element | Auto-fix: add default values for missing fields |
+| A-5b | Visual axis capture configuration: if `review_axes` has `id:"visual"` + `builtin:true` → `capture` object MUST exist with `capture.strategy` being `"file"` \| `"browser"` \| `"command"`. Strategy-specific required fields: `file` requires `output_pattern`, `browser` requires `url`, `command` requires `command` + `output_path`. If `review_axes` has NO visual but top-level `"visual"` exists → FAIL (legacy format detected, migrate to `review_axes`) | Auto-fix: cannot auto-fix (report only — user must provide capture settings via `/sprint-fix` or `/sprint-replan`) |
 | A-6 | `project` object exists | Auto-fix: add `{"name": "unknown", "tech_stack": "unknown"}` |
 | A-7 | `sprint_overrides` exists | Auto-fix: add empty object `{}` |
 | A-8 | All field names are `snake_case` (detect camelCase) | Auto-fix: convert camelCase -> snake_case |

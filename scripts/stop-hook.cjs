@@ -3,6 +3,7 @@
 const { readStdinJson } = require('./lib/stdin.cjs');
 const { readState, updateState, readConfig } = require('./lib/state.cjs');
 const { runSafetyChecks } = require('./lib/safety.cjs');
+const { validateConfig } = require('./lib/validate-config.cjs');
 
 /**
  * Build the continuation message that gets injected as a "user message"
@@ -140,6 +141,21 @@ ${state.resume_mode ? `
 - Use Task() for all agent delegation — no TeamCreate needed
 - Do NOT read project source code — only read .sprint-loop/ files
 - On DoD rejection, pass action_required verbatim to implementor without analysis`;
+
+  // Append config validation warnings/errors if any
+  if (config) {
+    const validation = validateConfig(config);
+    if (validation.errors.length > 0 || validation.warnings.length > 0) {
+      let section = '\n\n## Config Validation Issues';
+      for (const err of validation.errors) {
+        section += `\n- ERROR: ${err}`;
+      }
+      for (const warn of validation.warnings) {
+        section += `\n- WARNING: ${warn}`;
+      }
+      return { message: message + section, pingDue };
+    }
+  }
 
   return { message, pingDue };
 }
