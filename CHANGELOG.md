@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.6] - 2026-03-05
+
+### Fixed
+- Prevent implementation drift after ExitPlanMode with 3-layer defense: REFERENCE DATA delimiters, self-contained instruction section, structural separation (8412a64)
+
 ## [0.2.5] - 2026-03-05
 
 ### Added
