@@ -597,9 +597,13 @@ These rules persist in the system prompt and survive context compaction.
 - Aggregator: `Task(subagent_type="review-aggregator", mode="acceptEdits")`
 - No TeamCreate/SendMessage/TeamDelete
 
-**Orchestrator reads ONLY `.sprint-loop/` files** (state, config, spec, design, dod, execution-log, reviews).
+**Orchestrator reads ONLY `.sprint-loop/` files** (state, config, spec, design, dod, execution-log, summary).
 Do NOT read or analyze project source code. Bug investigation and root cause analysis are the implementor's responsibility.
 On DoD rejection, pass `action_required` verbatim to the implementor — do not enrich or interpret it.
+
+**Reviewer verdicts are FINAL.** Do not re-run, override, reinterpret, or change the methodology of any reviewer that has written its result.
+Do not read the content of individual review files (`{axis_id}-attempt-{N}.json`) — read only `summary-attempt-{N}.json` after the aggregator runs.
+Do not write review JSON files (only reviewer agents and the aggregator write them).
 <!-- END LITERAL -->
 
 {For each custom axis in config.json's review_axes where builtin is false:}

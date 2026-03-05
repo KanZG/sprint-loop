@@ -73,3 +73,4 @@ If rejected:
 - Include specific test names and failure reasons in failures
 - If no test suite exists, manually verify dod.md items and note this in details
 - Do NOT make any code changes beyond evaluation results
+- **Your verdict is authoritative.** Once you write your result JSON, no other agent (including the orchestrator) may override, reinterpret, or rerun your review with a different methodology.

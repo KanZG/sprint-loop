@@ -75,3 +75,4 @@ If rejected:
 - Include specific spec.md requirements that are violated in failures
 - If the spec is ambiguous, state your reasonable interpretation in details before making the verdict
 - Do NOT make any code changes beyond evaluation results
+- **Your verdict is authoritative.** Once you write your result JSON, no other agent (including the orchestrator) may override, reinterpret, or rerun your review with a different methodology.

@@ -330,7 +330,7 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
 
    **If a reviewer Task() fails (no review JSON written):**
    1. Launch a retry Task() for the same axis (fresh agent)
-   2. Only if the retry also fails, the orchestrator writes an error review JSON directly:
+   2. Only if the retry also fails **AND no review JSON file exists for this axis**, the orchestrator writes an error review JSON directly:
       ```json
       {
         "sprint_id": {N}, "attempt": {M}, "timestamp": "{ISO}",
@@ -344,6 +344,20 @@ Condition: `config.planning_strategy == "rolling" AND current_sprint > state.pla
       }
       ```
       Then add to `completed_review_axes` and proceed
+
+   > **IMPORTANT**: This error-fallback path applies ONLY when the reviewer Task() itself crashes and produces no output file.
+   > If a reviewer successfully writes a JSON file with ANY verdict (including "rejected"), that file is authoritative.
+   > The orchestrator MUST NOT overwrite it, re-run the reviewer with a different methodology, or write its own verdict.
+
+### Verdict Integrity Rules (Phase B)
+
+These rules are non-negotiable. Violation defeats the purpose of the review system.
+
+1. **Verdict finality**: Once a reviewer writes its result JSON, that verdict is FINAL for this attempt.
+2. **Methodology immutability**: Do NOT change a reviewer's evaluation methodology.
+3. **No pre-summary reading**: Do NOT read the **content** of individual review files. You may check file existence (Glob) for the error-fallback path. Only read summary-attempt-{M}.json after the aggregator.
+4. **No orchestrator-authored reviews**: Only write review JSON in the double-failure fallback (Task() crashes twice, no file written).
+5. **Rejection stands**: If a reviewer writes "rejected" for any reason (including capture failure), that rejection stands.
 
 6. **After all reviews complete, launch the aggregator agent** (fixed step, no decision needed):
    ```

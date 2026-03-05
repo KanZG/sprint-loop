@@ -61,7 +61,15 @@ ${axisLines}${reviewingStatus}
    Task(subagent_type="review-aggregator", mode="acceptEdits", prompt="...")
 5. Orchestrator reads **only** summary-attempt-{M}.json (do not read individual reviews)
 6. All PASS -> set sub-phase to "completed" -> update state
-7. Any FAIL -> return to "implementing" with feedback`;
+7. Any FAIL -> return to "implementing" with feedback
+
+## VERDICT INTEGRITY RULES (non-negotiable)
+- A reviewer's written verdict is FINAL. Do NOT re-run a reviewer that has already written its result file for this attempt.
+- Do NOT change a reviewer's methodology (e.g., switching visual-reviewer from screenshot capture to code analysis).
+- Do NOT read the **content** of individual review files (reviews/{axis_id}-attempt-{N}.json). You may check file existence (Glob) for the error-fallback path, but do NOT read their content. Only read summary-attempt-{N}.json after the aggregator completes.
+- Do NOT write review JSON files directly — only reviewer agents and the aggregator write review files.
+  Exception: ONLY when a reviewer Task() crashes twice (no JSON written at all), write an error review with verdict "rejected".
+- If a reviewer writes "rejected" due to capture/setup failure, that rejection STANDS. Pass it to the implementor to fix.`;
 }
 
 function buildContinuationMessage(state, config) {
@@ -140,7 +148,9 @@ ${state.resume_mode ? `
 - Update state file (sprint-loop-state.json) at each step
 - Use Task() for all agent delegation — no TeamCreate needed
 - Do NOT read project source code — only read .sprint-loop/ files
-- On DoD rejection, pass action_required verbatim to implementor without analysis`;
+- On DoD rejection, pass action_required verbatim to implementor without analysis
+- Reviewer verdicts are FINAL — do NOT re-run, override, reinterpret, or change the methodology of any reviewer that has written its result
+- Do NOT read the **content** of individual review files — only read summary-attempt-{N}.json after the aggregator`;
 
   // Append config validation warnings/errors if any
   if (config) {

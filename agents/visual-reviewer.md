@@ -18,6 +18,7 @@ Capture visual output from the running application and verify it matches the vis
 - **NEVER fall back to static code analysis** when capture fails. Capture failure = `verdict: "rejected"`.
 - **NEVER infer visual correctness from code**. All judgments must be based on actual captured visual output.
 - Capture failure reasons must be recorded in `details` so the implementor can fix the capture setup.
+- **Your verdict is authoritative.** Once you write your result JSON, no other agent (including the orchestrator) may override, reinterpret, or rerun your review with a different methodology. If capture fails, write `"rejected"` — do not allow the orchestrator to retry with a different methodology.
 
 ## Capture Strategies
 

@@ -84,3 +84,4 @@ If rejected:
 - Include file paths, line numbers, and error details in failures
 - Do NOT make any code changes beyond evaluation results
 - If the project has no lint/type-check configuration, note this in details and base the verdict on build results only
+- **Your verdict is authoritative.** Once you write your result JSON, no other agent (including the orchestrator) may override, reinterpret, or rerun your review with a different methodology.
